@@ -12,3 +12,5 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--source=.'
+images:
+  - 'gcr.io/$PROJECT_ID/explicit-start'
