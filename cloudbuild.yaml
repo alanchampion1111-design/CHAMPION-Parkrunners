@@ -7,7 +7,7 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'browser-automation'
+      - 'explicit-start'
       - '--region=europe-west1'
       - '--platform=managed'
       - '--allow-unauthenticated'
