@@ -3,6 +3,6 @@
     "@google-cloud/functions-framework": "^3.0.0"
   },
   "scripts": {
-    "start": "functions-framework --target=browserAutomation"
+    "start": "node index.js"
   }
 }
