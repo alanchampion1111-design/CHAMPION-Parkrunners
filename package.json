@@ -1,9 +1,12 @@
 {
+  "name": "browser-automation-service",
+  "version": "1.0.0",
+  "main": "index.js",
   "dependencies": {
-    "@google-cloud/functions-framework": "^3.0.0",
+    "@google-cloud/functions-framework": "^3.1.2",
     "puppeteer": "^22.0.0"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "functions-framework --target=browser --port=8080"
   }
 }
