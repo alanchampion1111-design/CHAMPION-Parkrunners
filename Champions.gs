@@ -20,6 +20,7 @@
 /---------------------------------------------------------------------------------------
  */
 
+
 // @OnlyCurrentDoc
 // @scope https://www.googleapis.com/auth/script.external_request
 
@@ -447,267 +448,56 @@ function CleanFormatforPastedRunResults(
 /   The following definitions and functions supplement the addition of
 /   results by securely connecting to the parkrun site for importing the
 /   latest results automatically, mimicking a manual copy/paste.
-/
 /  -------------------------------------------------------------------------
 */
 
 /**
  * For the purpose of this trial, the following session & connection functions rely on
- * establishing a persistent browserless connection using BrowserQL:
- *    https://docs.browserless.io/browserql/session-management/persisting-state
- *    https://docs.browserless.io/browserql/session-management/reconnect-to-browserless
  * The functions include:
- *    CreateSession
- *    OpenChromeSession - assumes using my existing profile for Parkrun certification
- *    NavigateSession
- *    CloseChromeSession
+ *    InitBrowser
+ *    GetUrl
+ *    CloseBrowser
  */
-const gdriveSportID =
-  '1-gjoX0eaBeP_PV7CGmPwwBQ34NazNhXm';
-const chromeProfileID = "Profile 5";    // orig. from Users\ironc\...\Profile 5
 
-const browserlessURL = 'https://production-ams.browserless.io';   // Europe
-const browserlessTOKEN = '2TNivCmgLEkvdZo2850da3ab86c276da56d0a53b239bbb431';
-const wssURL = browserlessURL+'/chrome/stealth';
-const sessionURL = browserlessURL+'/session';
-const withTOKEN = '?token='+browserlessTOKEN;
-
-async function CreateSession(sessionConfig) {
-  try {
-    const options = {
-      'method': 'POST',
-      'headers': {
-        'Content-Type': 'application/json'
-      },
-      'payload': JSON.stringify(sessionConfig)
-    };
-    var response = await UrlFetchApp.fetch(sessionURL+withTOKEN,options);
-    session = JSON.parse(response.getContentText());
-    return session;
-  } catch (error) {
-    Logger.log("ERROR: Failed to create browserless session...\n"+error.message);
-    throw error;
-  }
-}
-
-async function OpenChromeSession(
-  sessionMinutes = 3,
-  userFolder = 'ironc',
-  userProfileNum = 5)
-{
-  const minutesMAX = 30;
-  if (sessionMinutes > minutesMAX) {
-    Logger.log("ERROR: Invalid length of session (max: "+minutesMAX+" minutes)");
-    return null;
-  }
-  var sessionLength = 60000*sessionMinutes;
-  const sessionConfig = {
-    ttl: sessionLength,
-    stealth: true,
-    headless: false,
-    muteHttpExceptions: false,
-    // humanlike: true,
-    // acceptInsecureCerts: true,
-    browser: 'chrome',
-    // proxy: {   //proxy costs too much!
-    //   type: 'residential',
-    //   country: 'gb',  // UK
-    //  sticky: true
-    // },
-    args: [
-      `--profile-directory="/mnt/c/Users/${userFolder}/AppData/Local/Google/Chrome/User Data/Profile ${userProfileNum}"`,
-      "--no-sandbox",
-      "--disable-dev-shm-usage",
-      '--window-size=1920,1080'
-    ],
-  };
-  return CreateSession(sessionConfig)
-    .then(session => {
-      Logger.log("Stealth Chrome session opened on browserless platform:\n  "+session.id);
-      // await new Promise(resolve => setTimeout(resolve, 000));
-      return session;
-    })
-    .catch(error => {
-      Logger.log("ERROR: Failed to open stealth Chrome session...\n"+error);
-      return null;
-    });
-}
-
+const browserURL = 'https://browser-automation-service-224251628103.europe-west1.run.app';    // Google Cloud service in operation
 const sampleURL = 'https://www.example.com';  // default test
-const parkrunURL = 'https://www.parkrun.org.uk';
-const parkrunnerURL = parkrunURL+'/parkrunner/';
 
-function NavigateSession(
-  session,
-  pageUrl = sampleURL)
-{
-  var browserQL = session.browserQL;
-  var queryUrl = `
-    mutation RetrieveHTML {
-      goto(url:"${pageUrl}",waitUntil: ) {
-        status
-      }
-    html {
-      html
-    }
-  `;
-  var options = {
-    'method': 'POST',
-    'headers': {
-      'Content-Type': 'application/json'
-    },
-    'payload': JSON.stringify({query:queryUrl })
-  };
-  var response = UrlFetchApp.fetch(browserQL,options);
-  return JSON.parse(response.getContentText());
-}
-
-function GetParkrunnerResultsPage(parkrunnerId = '777764') {
-  OpenChromeSession(5)
-    .then(session => {
-      Logger.log('Got session:'+session);
-      return NavigateSession(session)
-      .then(htmlContent => {
-        Logger.log(htmlContent);
-        return NavigateSession(session,parkrunURL)
-        .then(htmlContent => {
-          Logger.log(htmlContent);
-          thisParkrunnerURL = parkrunnerURL+'/'+parkrunnerId +'/all/';
-          return NavigateSession(session,thisParkrunnerURL)
-          .then(htmlContent => {
-            Logger.log(htmlContent);
-            StopSession(session);
-            return htmlContent;
-          })
-          .catch(error => {
-            Logger.log('ERROR: Unable to access url, '+thisParkrunnerURL+'...\n'+error);
-            return null;
-          });
-        })
-        .catch(error => {
-          Logger.log('ERROR: Unable to access url, '+parkrunURL+'...\n'+error);
-        });
-      })
-      .catch(error => {
-        Logger.log('ERROR: Unable to access default url...\n'+error);
-      });
-    })
-    .catch(error => {
-        Logger.log('ERROR: Failed to open Chrome session..\n'+error);
-    });
-}
-
-/**
- * Fetches all the results for a given parkrunner ID from parkrun.org.uk
- *    @param {string} parkrunnerId - The ID of the parkrunner (default: "777764")
- *  @returns {string|null} - the html page for that runner (or null if failed)
- *  @see {@link https://www.parkrun.org.uk/parkrunner/${parkrunnerId}/all/#results}
- *  WARNING: This fails because web scraping is disallowed for
- *  individual runners info, and human interaction is rewuired:
- *    JavaScript is disabled...
- *    In order to continue, we need to verify that you're not a robot
- *    This requires JavaScript. Enable JavaScript and then reload the page.
- */
-function FetchAllResultsFromParkrunSiteForRunner(
-  parkrunnerId = "777764")
-{
-  var url = "https://www.parkrun.org.uk/parkrunner/"+parkrunnerId+"/all/#results";
-  // WARNING: Certificate needs renewed every 13 months (25-Aug-2026) 
-  var certificate =
-    "a6ed96669a1e50f103246504b17abe98b72ef10b82e418d7dd357d60015fa193";
-  var publicKey =
-    "f85d64418538b6f773f5d6390cb9bc4031d0afc6fc7718a7f2a0ea5961289c20";
-  var certificateSerialNum =
-    "06:38:B6:0C:BC:45:BE:A8:41:EC:5B:AE:D1:CC:BB:A7";
-  // var certificateSerialNum = "0638B60CBCE45BEA841EC5BAED1CCBBA7";
-  var signature = Utilities
-    .computeDigest(Utilities.DigestAlgorithm.SHA_256,
-    JSON.stringify({}));    // potentially a timestamp expected?
-  var signatureString = Utilities.base64Encode(signature);
-  var browser = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "+
-    "Chrome/142.0.7444.135";
-  var headers = {
-    "User-Agent":                   browser,
-    "X-Public-Key":                 publicKey,
-    // "X-Certificate":             certificate,      // not required?
-    "X-Certificate-Serial-Number":  certificateSerialNum,
-    "X-Signature":                  signatureString,
-    "Accept":                       "text/html"
-  };
-  var options = {
-    "method": "GET",
-    "headers": headers,
-    "muteHttpExceptions": false
-  };
-  try {
-    Logger.log("Request Headers:\n"+headers);
-    var response = UrlFetchApp.fetch(url,options);
-    Utilities.sleep(3000); // wait 2 seconds
-    // Logger.log("Response Code: "+response.getResponseCode());
-    // Logger.log("Response Headers:\n"+response.getHeaders());
-    html = response.getContentText();
-    Logger.log("Response Content:\n"+html);
-    return html;
-  } catch (e) {
-    Logger.log("Error fetching URL: "+ url + " - " + e.message);
-    Logger.log(e);
-    return null;
-  }
-}
-
-/**
- * Browses the results for a given parkrunner ID from parkrun.org.uk
- * using a Google Cloud Functions  service to mimic a human request 
- *    @param {string} parkrunnerId - The ID of the parkrunner (default: "777764")
- *  @returns {string|null} html - the full results page for that runner (or null if fails)
- *  @see {@link https://www.parkrun.org.uk/parkrunner/${parkrunnerId}/all/#results}
- */
-async function MimicAllResultsFromParkrunSiteForRunner(
-  parkrunnerId = "777764")
-{
-  var browserless = await OpenBrowserlessViaPuppeteer();
-  try {
-    const pageSYNC = await browserless.newPage();
-    var url = "https://www.parkrun.org.uk";
-    await pageSYNC.goto(url);
-    await pageSYNC.waitForTimeout(2000);
-    var html = await pageSYNC.content();
-    Logger.log(html);
-    url += "/parkrunner/"+parkrunnerId+"/all/#results";
-    await pageSYNC.goto(url);
-    await pageSYNC.waitForTimeout(3000);
-    html = await pageSYNC.content();
-    Logger.log(html);
-    await browserless.close();
-    return html;
-  } catch (error) {
-    Logger.log('Error:', error);
-    return;
-  }
-}
-
-const browserURL = 'https://browser-automation-service-224251628103.europe-west1.run.app';
-
-async function initBrowser() {
-  const initBrowserURL = browserURL + '/initBrowser';
+function OpenBrowser() {
+  const initBrowserURL = browserURL+'/initBrowser';
   var response = UrlFetchApp.fetch(initBrowserURL);
   Logger.log(response.getContentText());
 }
 
-async function getUrl(url) {
-  var getBrowserURL = browserURL + '/getUrl?url=' + encodeURIComponent(url);
+function GetUrl(
+  url = sampleURL)
+{
+  var getBrowserURL = browserURL+'/getUrl?url='+encodeURIComponent(url);
   var response = UrlFetchApp.fetch(getBrowserURL);
   var html = response.getContentText();
   Logger.log(html);
   return html; 
 }
 
-async function closeBrowser() {
-  const closeBrowserURL = browserURL + '/closeBrowser';
+function CloseBrowser() {
+  const closeBrowserURL = browserURL+'/closeBrowser';
   var response = UrlFetchApp.fetch(closeBrowserURL);
   Logger.log(response.getContentText());
 }
 
+const parkrunURL = 'https://www.parkrun.org.uk';
+const parkrunnerURL = parkrunURL+'/parkrunner/';
+
+function GetParkrunnerResultsPage(parkrunnerId = '777764') {
+  thisParkrunnerURL = parkrunnerURL+'/'+parkrunnerId +'/all/';
+  try {
+    var htmlContent = GetUrl(thisParkrunnerURL);
+    Logger.log(htmlContent);
+    return htmlContent;
+  } catch(error) {
+    Logger.log('ERROR: Unable to access url, '+thisParkrunnerURL+'...\n'+error);
+    return null;
+  }
+}
 
 /**
  * Copies the single latest result for a given parkrunner ID from parkrun.org.uk
@@ -774,6 +564,9 @@ function PasteLatestResultForRunner(
 function ImportLatestResultForEachRunner() {
   var runnerNames = allRunnersSHEET.getRange("A"+runnersStartROW+":A")
     .getValues().filter(String);
+  OpenBrowser();                      // 1. Verify Chrome operational
+  var htmlContent = GetUrl();         // 2. Verify sample functional
+  htmlContent = GetUrl(parkrunURL);   // 3. Ensure Parkrun allowed
   runnerNames.forEach(function(runnerName,index) {
     var parkrunnerId = allRunnersSHEET.getRange(
       runnersStartROW+index,parkrunnerIdCOLUMN).getValue();
@@ -785,6 +578,7 @@ function ImportLatestResultForEachRunner() {
       }
     }
   });
+  CloseBrowser();
 }
 
 /* ---------------------------------------------------------------------------
@@ -792,7 +586,7 @@ function ImportLatestResultForEachRunner() {
 /   The following definitions and functions are used to support the automatic
 /   creation of comparison charts based on pe-defined groups of runner,
 /
-/  ---------------------------------------------------------------------------
+/ ---------------------------------------------------------------------------
 */
 
 const chartYAxisTITLE = 'Age Grade';
