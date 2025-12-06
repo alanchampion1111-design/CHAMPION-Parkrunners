@@ -462,35 +462,37 @@ function CleanFormatforPastedRunResults(
 const browserURL = 'https://browser-automation-service-224251628103.europe-west1.run.app';    // Google Cloud service in operation
 const sampleURL = 'https://www.example.com';  // default test
 
-function OpenBrowser() {
+async function OpenBrowser() {
   const initBrowserURL = browserURL+'/initBrowser';
-  var response = UrlFetchApp.fetch(initBrowserURL);
+  var response = await UrlFetchApp.fetch(
+    initBrowserURL // , {muteHttpExceptions: true}
+  );
   Logger.log(response.getContentText());
 }
 
-function GetUrl(
+async function GetUrl(
   url = sampleURL)
 {
   var getBrowserURL = browserURL+'/getUrl?url='+encodeURIComponent(url);
-  var response = UrlFetchApp.fetch(getBrowserURL);
+  var response = await UrlFetchApp.fetch(getBrowserURL);
   var html = response.getContentText();
   Logger.log(html);
   return html; 
 }
 
-function CloseBrowser() {
+async function CloseBrowser() {
   const closeBrowserURL = browserURL+'/closeBrowser';
-  var response = UrlFetchApp.fetch(closeBrowserURL);
+  var response = await UrlFetchApp.fetch(closeBrowserURL);
   Logger.log(response.getContentText());
 }
 
 const parkrunURL = 'https://www.parkrun.org.uk';
 const parkrunnerURL = parkrunURL+'/parkrunner/';
 
-function GetParkrunnerResultsPage(parkrunnerId = '777764') {
+async function GetParkrunnerResultsPage(parkrunnerId = '777764') {
   thisParkrunnerURL = parkrunnerURL+'/'+parkrunnerId +'/all/';
   try {
-    var htmlContent = GetUrl(thisParkrunnerURL);
+    var htmlContent = await GetUrl(thisParkrunnerURL);
     Logger.log(htmlContent);
     return htmlContent;
   } catch(error) {
@@ -561,10 +563,10 @@ function PasteLatestResultForRunner(
 /**
  * Imports the latest results for each of our runners from parkrun.org.uk.
  */
-function ImportLatestResultForEachRunner() {
+async function ImportLatestResultForEachRunner() {
   var runnerNames = allRunnersSHEET.getRange("A"+runnersStartROW+":A")
     .getValues().filter(String);
-  OpenBrowser();                      // 1. Verify Chrome operational
+  await OpenBrowser();                      // 1. Verify Chrome operational
   var htmlContent = GetUrl();         // 2. Verify sample functional
   htmlContent = GetUrl(parkrunURL);   // 3. Ensure Parkrun allowed
   runnerNames.forEach(function(runnerName,index) {
@@ -578,7 +580,7 @@ function ImportLatestResultForEachRunner() {
       }
     }
   });
-  CloseBrowser();
+  await CloseBrowser();
 }
 
 /* ---------------------------------------------------------------------------
