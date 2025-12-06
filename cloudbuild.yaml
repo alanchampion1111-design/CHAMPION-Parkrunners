@@ -14,7 +14,7 @@ steps:
     args: [ 'run','deploy','browser-automation-service',
             '--image=europe-west1-docker.pkg.dev/parkrun-champions/cloud-run-source-deploy/browser-automation-service',
             '--platform=managed','--allow-unauthenticated','--port=8080',
-            '--region=europe-west1','--set-env-vars=^:^NODE_ENV=production',
+            '--region=global','--set-env-vars=^:^NODE_ENV=production',
             '--memory=2Gi','--cpu=1','--min-instances=0','--max-instances=1'
           ]
 
