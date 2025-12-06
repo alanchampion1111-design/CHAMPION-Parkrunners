@@ -4,6 +4,13 @@ FROM node:22
 # Set working directory
 WORKDIR /app
 
+# Install Google Chrome
+RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt-get update && \
+    apt-get install -y ./google-chrome-stable_current_amd64.deb && \
+    rm google-chrome-stable_current_amd64.deb && \
+    rm -rf /var/lib/apt/lists/*
+    
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
