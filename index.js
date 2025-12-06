@@ -1,5 +1,6 @@
 // const functions = require('@google-cloud/functions-framework');
 const puppeteer = require('puppeteer');
+
 let thisBrowser;  // persists on server (and so req redundant unless carrying the url)
 let useTimeout;
 
@@ -14,9 +15,11 @@ let cloudBrowser = async (
     executablePath: '/usr/bin/google-chrome',
     args: [
       '--no-sandbox',
-      '--disable-setuid-sandbox'
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
     ],
     timeout: useTimeout*1000,    // max session length
+    // ignoreHTTPSErrors: true,
     // userDataDir: `/mnt/c/Users/${user}/AppData/Local/Google/Chrome/User Data/${profile}`
   });
 };
@@ -24,18 +27,25 @@ let cloudBrowser = async (
 exports.initBrowser = async (_,res) => {        // req unused
   try {
     await cloudBrowser(3);
-    res.status(200).send('Chrome browser initialised');
+    return ContentService.createTextOutput('Chrome browser initialised')
+            .setMimeType(ContentService.MimeType.TEXT);
   } catch (err) {
-    console.error(err);
-    res.status(500).send('ERROR: Failed to initialise browser');
+    Logger.log(err);
+    return ContentService.createTextOutput('ERROR: Failed to initialise browser')
+            .setMimeType(ContentService.MimeType.TEXT).setStatusCode(500);
   }
 };
 
 exports.closeBrowser = async (_, res) => {      // req unused
-  if (thisBrowser) {
-    await thisBrowser.close();
-    thisBrowser = null;
-    res.status(200).send('Activation complete!');
+  try {
+    if (thisBrowser) {
+      await thisBrowser.close();
+      thisBrowser = null;
+    }
+    return ContentService.createTextOutput('Browser closed successfully').setMimeType(ContentService.MimeType.TEXT);
+  } catch (err) {
+    Logger.log(err);
+    return ContentService.createTextOutput('ERROR: Failed to close browser').setMimeType(ContentService.MimeType.TEXT).setStatusCode(500);
   }
 };
 
