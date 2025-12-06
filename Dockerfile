@@ -17,7 +17,7 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy code
+# Copy code, including index.js
 COPY . .
 
 # Start command
