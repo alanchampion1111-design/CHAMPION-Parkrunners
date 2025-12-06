@@ -7,6 +7,6 @@
     "puppeteer": "^22.0.0"
   },
   "scripts": {
-    "start": "functions-framework --target=browser --port=8080"
+    "start": "functions-framework --target=browser"
   }
 }
