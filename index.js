@@ -1,3 +1,13 @@
+// Multiple steps to do:
+//    1. Verify triggers gets latest sources from GitHub including this index.js file
+//    2. Verify build image uses Docker to install Chrome
+//    3. Verify Chrome browser works directly on server after build
+//    4. Verify server side browser activated by client from Google Spreadsheet app
+//    5. Verify sample page retrieved ok
+//    6. Upload profile/certificates for access to www.parkrun.org.uk
+//    7. Verify allowed to load content for www.parkrun.org.uk
+//    8. Verify stealth access to individual parkrunner results table (although disallowed)
+
 // const functions = require('@google-cloud/functions-framework');
 const puppeteer = require('puppeteer');
 
