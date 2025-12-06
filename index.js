@@ -16,9 +16,7 @@ let thisBrowser;    // persists on server
 let useTimeout;
 
 let cloudBrowser = async (
-  myTime = 5,
-  user = 'ironc',
-  profile = '5') =>
+  myTime = 5) =>
 {
   useTimeout = myTime;
   thisBrowser = await puppeteer.launch({
@@ -31,7 +29,7 @@ let cloudBrowser = async (
     ],
     timeout: useTimeout*1000,    // max session length
     // ignoreHTTPSErrors: true,
-    // userDataDir: `/mnt/c/Users/${user}/AppData/Local/Google/Chrome/User Data/${profile}`
+    // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
   });
 };
 
