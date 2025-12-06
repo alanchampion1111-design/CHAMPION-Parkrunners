@@ -1,5 +1,6 @@
 // Multiple steps to do:
-//    1. Verify triggers gets latest sources from GitHub including this index.js file
+//    0. Verify base image is in Artifact Registry (done)
+//    1. Verify triggers gets latest sources from GitHub including this index.js file (tbd)
 //    2. Verify build image uses Docker to install Chrome
 //    3. Verify Chrome browser works directly on server after build
 //    4. Verify server side browser activated by client from Google Spreadsheet app
