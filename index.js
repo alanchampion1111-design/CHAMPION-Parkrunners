@@ -1,7 +1,7 @@
 // const functions = require('@google-cloud/functions-framework');
 const puppeteer = require('puppeteer');
 
-let thisBrowser;  let thisBrowser;  // persists on server
+let thisBrowser;    // persists on server
 let useTimeout;
 
 let cloudBrowser = async (
