@@ -1,7 +1,7 @@
 // const functions = require('@google-cloud/functions-framework');
 const puppeteer = require('puppeteer');
 
-let thisBrowser;  // persists on server (and so req redundant unless carrying the url)
+let thisBrowser;  let thisBrowser;  // persists on server
 let useTimeout;
 
 let cloudBrowser = async (
@@ -24,28 +24,38 @@ let cloudBrowser = async (
   });
 };
 
-exports.initBrowser = async (_,res) => {        // req unused
+exports.initBrowser = async () => {
   try {
     await cloudBrowser(3);
-    return ContentService.createTextOutput('Chrome browser initialised')
-            .setMimeType(ContentService.MimeType.TEXT);
+    return {
+      statusCode: 200,
+      body: 'Chrome browser initialised'
+    };
   } catch (err) {
-    Logger.log(err);
-    return ContentService.createTextOutput('ERROR: Failed to initialise browser')
-            .setMimeType(ContentService.MimeType.TEXT).setStatusCode(500);
+    console.error(err);
+    return {
+      statusCode: 500,
+      body: 'ERROR: Failed to initialise browser'
+    };
   }
 };
 
-exports.closeBrowser = async (_, res) => {      // req unused
+exports.closeBrowser = async () => {
   try {
     if (thisBrowser) {
       await thisBrowser.close();
       thisBrowser = null;
     }
-    return ContentService.createTextOutput('Browser closed successfully').setMimeType(ContentService.MimeType.TEXT);
+    return {
+      statusCode: 200,
+      body: 'Browser closed successfully'
+    };
   } catch (err) {
-    Logger.log(err);
-    return ContentService.createTextOutput('ERROR: Failed to close browser').setMimeType(ContentService.MimeType.TEXT).setStatusCode(500);
+    console.error(err);
+    return {
+      statusCode: 500,
+      body: 'ERROR: Failed to close browser'
+    };
   }
 };
 
@@ -55,38 +65,47 @@ let loadUrl = async (url) => {
   }
   var thisPage = await thisBrowser.newPage();
   thisPage.setDefaultTimeout(useTimeout*1000); // Set the timeout for the page
-  await thisPage.goto(url, {
-    waitUntil: 'networkidle0'
-  });
+  await thisPage.goto(url, {waitUntil: 'networkidle0'});
   var content = await thisPage.content();
   await thisPage.close();
   return content;
 };
 
-exports.getUrl = async (req,res) => {
+exports.getUrl = async (req) => {
   try {
     var url = req.query.url;
     if (!url) {
-      res.status(400).send('ERROR: Missing URL parameter');
-      return;
+      return {
+        statusCode: 400,
+        body: 'ERROR: Missing URL parameter'
+      };
     }
     var content = await loadUrl(url);
-    res.status(200).send(content);
+    return {
+      statusCode: 200,
+      body: content
+    };
   } catch (err) {
     console.error(err);
-    res.status(500).send('ERROR: Failed to load URL');
+    return {
+      statusCode: 500,
+      body: 'ERROR: Failed to load URL'
+    };
   }
 };
 
-exports.browser = async (req,res) => {
+exports.browser = async (req) => {
   var path = req.path;
   if (path === '/initBrowser') {
-    await exports.initBrowser(req,res);
+    return exports.initBrowser();
   } else if (path === '/getUrl') {
-    await exports.getUrl(req, res);
+    return exports.getUrl(req);
   } else if (path === '/closeBrowser') {
-    await exports.closeBrowser(req,res);
+    return exports.closeBrowser();
   } else {
-    res.status(404).send('Not Found');
-  }
+    return {
+        statusCode: 404,
+        body: 'Not Found'
+    };
+  } 
 };
