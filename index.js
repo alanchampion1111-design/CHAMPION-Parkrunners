@@ -27,7 +27,7 @@ let cloudBrowser = async (
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
     ],
-    timeout: useTimeout*1000,    // max session length
+    timeout: useTimeout*60*1000,    // max session length
     // ignoreHTTPSErrors: true,
     // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
   });
