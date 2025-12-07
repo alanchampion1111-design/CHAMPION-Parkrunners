@@ -35,7 +35,7 @@ let cloudBrowser = async (
 
 exports.initBrowser = async () => {
   try {
-    await cloudBrowser(3);
+    await cloudBrowser(10);
     return {
       statusCode: 200,
       body: 'Chrome browser initialised'
