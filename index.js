@@ -1,8 +1,8 @@
 // Multiple steps to do:
 //    0. Verify base image is in Artifact Registry (done)
-//    1. Verify triggers gets latest sources from GitHub including this index.js file (tbd)
-//    2. Verify build image uses Docker to install Chrome
-//    3. Verify Chrome browser works directly on server after build
+//    1. Verify triggers gets latest sources from GitHub including this index.js file (done)
+//    2. Verify build image uses Docker to install Chrome (tbd)
+//    3. Verify Chrome browser works directly on server after build (tbd)
 //    4. Verify server side browser activated by client from Google Spreadsheet app
 //    5. Verify sample page retrieved ok
 //    6. Upload profile/certificates for access to www.parkrun.org.uk
