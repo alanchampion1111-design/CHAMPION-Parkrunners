@@ -26,6 +26,7 @@ let cloudBrowser = async (
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
+      '--verbose',
     ],
     timeout: useTimeout*60*1000,    // max session length
     // ignoreHTTPSErrors: true,
