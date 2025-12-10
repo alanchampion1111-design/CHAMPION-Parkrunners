@@ -15,7 +15,7 @@ RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.d
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install -g npm@latest
 
 # Copy code, including index.js
 COPY . .
