@@ -31,7 +31,7 @@ let cloudBrowser = async (
       '--verbose',
     ],
     timeout: useTimeout,    // max session length
-    // detached: true,      // false is default for puppeteer launch
+    detached: true,         // ensure session with puppeteer persists after initial launch
     // ignoreHTTPSErrors: true,
     // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
   });  
@@ -40,23 +40,20 @@ let cloudBrowser = async (
   await thisPage.goto('about:blank');      // To verify that the browser is ready
   await new Promise(resolve =>
     setTimeout(resolve, 1000)    // Resolve after 1s {}) with Browser running in the background
+                    
 };
 exports.initBrowser = async () => {
   try {
     if (!initialised) {
       await cloudBrowser(7);  // Runs in the background
       initialised = true;
-    } 
-    return {
-      statusCode: 200,
-      body: 'Chrome browser initialised with  '+thisPage.url()
+    }
+    console.log('Browser process ID:', thisBrowser.process().pid);
+    return {statusCode: 200, body: 'Chrome browser initialised with '+thisPage.url()
     };
   } catch (err) {
     console.error(err);
-    return {
-      statusCode: 500,
-      body: 'ERROR: Failed to initialise browser'
-    };
+    return {statusCode: 500, body: 'ERROR: Failed to initialise browser'};
   }
 };
 
@@ -72,27 +69,20 @@ exports.getUrl = async (req) => {
   try {
     var url = req.query.url;
     if (!url) {
-      return {
-        statusCode: 400,
-        body: 'ERROR: Missing URL parameter'
-      };
+      return {statusCode: 400, body: 'ERROR: Missing URL parameter'};
     }
     var content = await loadUrl(url);
-    return {
-      statusCode: 200,
-      body: content
-    };
+    console.log('Browser process ID:', thisBrowser.process().pid);
+    return {statusCode: 200, body: content};
   } catch (err) {
     console.error(err);
-    return {
-      statusCode: 500,
-      body: 'ERROR: Failed to load URL'
-    };
+    return {statusCode: 500, body: 'ERROR: Failed to load URL'};
   }
 };
 
 exports.closeBrowser = async () => {
   try {
+    console.log('Browser process ID:', thisBrowser.process().pid);
     if (thisBrowser) {
       await thisBrowser.close();
       thisBrowser = null;
@@ -101,16 +91,10 @@ exports.closeBrowser = async () => {
         thisPage = null;
       }
     }
-    return {
-      statusCode: 200,
-      body: 'Browser closed successfully'
-    };
+    return {statusCode: 200, body: 'Browser closed successfully'};
   } catch (err) {
     console.error(err);
-    return {
-      statusCode: 500,
-      body: 'ERROR: Failed to close browser'
-    };
+    return {statusCode: 500, body: 'ERROR: Failed to close browser'};
   }
 };
 
@@ -123,9 +107,6 @@ exports.browser = async (req) => {
   } else if (path === '/closeBrowser') {
     return exports.closeBrowser();
   } else {
-    return {
-        statusCode: 404,
-        body: 'Not Found'
-    };
+    return {statusCode: 404, body: 'ERROR: Functional path Not Found'};
   } 
 };
