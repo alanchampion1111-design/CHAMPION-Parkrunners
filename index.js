@@ -19,7 +19,7 @@ let useTimeout;      // for browser session AND each page
 let cloudBrowser = async (
   myTime = 5) =>
 {
-  useTimeout = myTime*60;
+  useTimeout = myTime*60*1000;
   thisBrowser = await puppeteer.launch({
     headless: true,
     executablePath: '/usr/bin/google-chrome',
@@ -29,22 +29,22 @@ let cloudBrowser = async (
       '--disable-dev-shm-usage',
       '--verbose',
     ],
-    timeout: useTimeout*1000,    // max session length
+    timeout: useTimeout,    // max session length
     detached: true,
     // ignoreHTTPSErrors: true,
     // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
   });  
   thisPage = await thisBrowser.newPage();
-  thisPage.setDefaultTimeout(useTimeout*1000); // Set the timeout for the page
+  thisPage.setDefaultTimeout(useTimeout); // Set the timeout for the page
   await thisPage.goto('about:blank');    // Verify that the browser is ready
   await new Promise(resolve => {});      // Browser now ready and running in the background
 };
 exports.initBrowser = async () => {
   try {
-    cloudBrowser(10);    // Runs in the background
+    cloudBrowser(7);    // Runs in the background
     return {
       statusCode: 200,
-      body: 'Chrome browser initialised: '+thisBrowser
+      body: 'Chrome browser initialised with  '+thisPage.url
     };
   } catch (err) {
     console.error(err);
