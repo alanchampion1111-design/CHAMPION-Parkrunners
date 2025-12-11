@@ -20,7 +20,7 @@ let cloudBrowser = async (
   myTime = 5) =>
 {
   useTimeout = myTime*60*1000;
-  thisBrowser = await puppeteer.launch({
+  thisBrowser = await puppeteer.launch({  // variable delay if image not cached
     headless: true,
     executablePath: '/usr/bin/google-chrome',
     args: [
@@ -35,16 +35,18 @@ let cloudBrowser = async (
     // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
   });  
   thisPage = await thisBrowser.newPage();
-  thisPage.setDefaultTimeout(useTimeout); // Set the timeout for the page
-  await thisPage.goto('about:blank');    // Verify that the browser is ready
-  await new Promise(resolve => {});      // Browser now ready and running in the background
+  thisPage.setDefaultTimeout(useTimeout);  // Set the timeout for the page
+  await thisPage.goto('about:blank');      // Verify that the browser is ready
+  await new Promise(resolve =>
+    setTimeout(resolve, 100)
+  ); // Resolve after 100ms {});        // Browser now ready and running in the background
 };
 exports.initBrowser = async () => {
   try {
     cloudBrowser(7);    // Runs in the background
     return {
       statusCode: 200,
-      body: 'Chrome browser initialised with  '+thisPage.url
+      body: 'Chrome browser initialised with  '+thisPage.url()
     };
   } catch (err) {
     console.error(err);
