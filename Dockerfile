@@ -16,7 +16,7 @@ RUN apt-get update && \
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install -g npm@latest
+RUN npm install
 
 # Copy code, including index.js
 COPY . .
