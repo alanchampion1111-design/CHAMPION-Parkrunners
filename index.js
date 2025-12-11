@@ -31,15 +31,14 @@ let cloudBrowser = async (
       '--verbose',
     ],
     timeout: useTimeout,    // max session length
+    detached: false,        // default for Puppeteer, but emphatically so!
     // ignoreHTTPSErrors: true,
     // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
   });  
   thisPage = await thisBrowser.newPage();
   thisPage.setDefaultTimeout(useTimeout);  // Set the timeout for the page
   await thisPage.goto('about:blank');      // Verify that the browser is ready
-  await new Promise(resolve =>
-    setTimeout(resolve, 100)
-  ); // Resolve after 100ms {});        // Browser now ready and running in the background
+    await new Promise(resolve => {});      // Browser now ready and running in the background
 };
 exports.initBrowser = async () => {
   try {
