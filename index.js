@@ -2,9 +2,9 @@
 //    0. Verify base image is in Artifact Registry (done)
 //    1. Verify triggers gets latest sources from GitHub including this index.js file (done)
 //    2. Verify build image uses Docker to install Chrome (done)
-//    3. Verify Chrome browser works directly on server after build (tbd)
+//    3. Verify Chrome browser works directly on server after build (done)
 //    4. Verify server side, thisBrowser activated by client from Google Spreadsheet app (tbd)
-//    5. Verify sample page retrieved ok and that thisBrowser state has persisted (tbd)
+//    5. Verify sample page retrieved ok and that thisBrowser and thisPage persists (tbd)
 //    6. Upload profile/certificates for access to www.parkrun.org.uk
 //    7. Verify allowed to load content for www.parkrun.org.uk
 //    8. Verify stealth access to individual parkrunner results table (although disallowed)
@@ -12,13 +12,14 @@
 // const functions = require('@google-cloud/functions-framework');
 const puppeteer = require('puppeteer');
 
-let thisBrowser;    // persists on server
-let useTimeout;
+let thisBrowser;     // persists on server
+let thisPage;        // re-use same page
+let useTimeout;      // for browser session AND each page
 
 let cloudBrowser = async (
   myTime = 5) =>
 {
-  useTimeout = myTime;
+  useTimeout = myTime*60;
   thisBrowser = await puppeteer.launch({
     headless: true,
     executablePath: '/usr/bin/google-chrome',
@@ -28,18 +29,22 @@ let cloudBrowser = async (
       '--disable-dev-shm-usage',
       '--verbose',
     ],
-    timeout: useTimeout*60*1000,    // max session length
+    timeout: useTimeout*1000,    // max session length
+    detached: true,
     // ignoreHTTPSErrors: true,
     // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
-  });
+  });  
+  thisPage = await thisBrowser.newPage();
+  thisPage.setDefaultTimeout(useTimeout*1000); // Set the timeout for the page
+  await thisPage.goto('about:blank');    // Verify that the browser is ready
+  await new Promise(resolve => {});      // Browser now ready and running in the background
 };
-
 exports.initBrowser = async () => {
   try {
-    await cloudBrowser(10);
+    cloudBrowser(10);    // Runs in the background
     return {
       statusCode: 200,
-      body: 'Chrome browser initialised'
+      body: 'Chrome browser initialised: '+thisBrowser
     };
   } catch (err) {
     console.error(err);
@@ -50,37 +55,14 @@ exports.initBrowser = async () => {
   }
 };
 
-exports.closeBrowser = async () => {
-  try {
-    if (thisBrowser) {
-      await thisBrowser.close();
-      thisBrowser = null;
-    }
-    return {
-      statusCode: 200,
-      body: 'Browser closed successfully'
-    };
-  } catch (err) {
-    console.error(err);
-    return {
-      statusCode: 500,
-      body: 'ERROR: Failed to close browser'
-    };
-  }
-};
-
 let loadUrl = async (url) => {
   if (!thisBrowser) {
     throw new Error('Browser had failed to initialise');
   }
-  var thisPage = await thisBrowser.newPage();
-  thisPage.setDefaultTimeout(useTimeout*1000); // Set the timeout for the page
   await thisPage.goto(url, {waitUntil: 'networkidle0'});
   var content = await thisPage.content();
-  await thisPage.close();
   return content;
 };
-
 exports.getUrl = async (req) => {
   try {
     var url = req.query.url;
@@ -100,6 +82,29 @@ exports.getUrl = async (req) => {
     return {
       statusCode: 500,
       body: 'ERROR: Failed to load URL'
+    };
+  }
+};
+
+exports.closeBrowser = async () => {
+  try {
+    if (thisBrowser) {
+      await thisBrowser.close();
+      thisBrowser = null;
+      if (thisPage) {
+        await thisPage.close();
+        thisPage = null;
+      }
+    }
+    return {
+      statusCode: 200,
+      body: 'Browser closed successfully'
+    };
+  } catch (err) {
+    console.error(err);
+    return {
+      statusCode: 500,
+      body: 'ERROR: Failed to close browser'
     };
   }
 };
