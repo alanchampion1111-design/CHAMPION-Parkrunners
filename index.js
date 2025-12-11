@@ -45,8 +45,10 @@ let cloudBrowser = async (
 exports.initBrowser = async () => {
   try {
     if (!initialised) {
-      await cloudBrowser(7);  // Runs (detached) in the background
-      initialised = true;
+      setTimeout(async () => {
+        await cloudBrowser(7);  // Runs (detached) in the background
+        initialised = true;
+      },0);
     }
     console.log('Browser process ID:', thisBrowser.process().pid);
     return {statusCode: 200, body: 'Chrome browser initialised with '+thisPage.url()
