@@ -39,13 +39,13 @@ let cloudBrowser = async (
   thisPage.setDefaultTimeout(useTimeout);  // Set the timeout for the page
   await thisPage.goto('about:blank');      // To verify that the browser is ready
   await new Promise(resolve =>
-    setTimeout(resolve, 1000)    // Resolve after 1s {}) with Browser running in the background
-                    
-};
+    setTimeout(resolve, 1000)    // Resolve after 1s with Browser running in the background
+  );
+}
 exports.initBrowser = async () => {
   try {
     if (!initialised) {
-      await cloudBrowser(7);  // Runs in the background
+      await cloudBrowser(7);  // Runs (detached) in the background
       initialised = true;
     }
     console.log('Browser process ID:', thisBrowser.process().pid);
