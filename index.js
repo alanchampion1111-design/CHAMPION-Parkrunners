@@ -43,7 +43,7 @@ let cloudBrowser = async (
 exports.initBrowser = async () => {
   try {
     if (!initialised) {
-      cloudBrowser(7);  // Runs in the background
+      await cloudBrowser(7);  // Runs in the background
       initialised = true;
     } 
     return {
