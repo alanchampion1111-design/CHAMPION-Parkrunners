@@ -14,6 +14,7 @@ const puppeteer = require('puppeteer');
 
 let thisBrowser;     // persists on server
 let thisPage;        // re-use same page
+let initialised = false;
 let useTimeout;      // for browser session AND each page
 
 let cloudBrowser = async (
@@ -30,7 +31,6 @@ let cloudBrowser = async (
       '--verbose',
     ],
     timeout: useTimeout,    // max session length
-    detached: true,
     // ignoreHTTPSErrors: true,
     // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
   });  
@@ -43,7 +43,10 @@ let cloudBrowser = async (
 };
 exports.initBrowser = async () => {
   try {
-    cloudBrowser(7);    // Runs in the background
+    if (!initialised) {
+      await cloudBrowser(7);  // Runs in the background
+      initialised = true;
+    } 
     return {
       statusCode: 200,
       body: 'Chrome browser initialised with  '+thisPage.url()
@@ -58,8 +61,8 @@ exports.initBrowser = async () => {
 };
 
 let loadUrl = async (url) => {
-  if (!thisBrowser) {
-    throw new Error('Browser had failed to initialise');
+  if (!initialised) {
+    await exports.initBrowser();
   }
   await thisPage.goto(url, {waitUntil: 'networkidle0'});
   var content = await thisPage.content();
