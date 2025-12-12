@@ -10,7 +10,11 @@
 //    8. Verify stealth access to individual parkrunner results table (although disallowed)
 
 // const functions = require('@google-cloud/functions-framework');
-const puppeteer = require('puppeteer');
+// const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
 let thisBrowser;     // persists on server
 let thisPage;        // re-use same page
@@ -21,6 +25,7 @@ let cloudBrowser = async (
   myTime = 5) =>
 {
   useTimeout = myTime*60*1000;
+
   thisBrowser = await puppeteer.launch({  // variable delay if image not cached
     headless: true,
     executablePath: '/usr/bin/google-chrome',
@@ -29,6 +34,8 @@ let cloudBrowser = async (
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--ssl-certificates-file=./www.parkrun.org.uk.crt',
+      // '--ssl-certificates-dir=./',
+      // '--cert=./www.parkrun.org.uk.pem',
       '--verbose',
     ],
     timeout: useTimeout,    // max session length
@@ -37,7 +44,10 @@ let cloudBrowser = async (
   });  
   thisPage = await thisBrowser.newPage();
   thisPage.setDefaultTimeout(useTimeout);  // Set the timeout for the page
+  await page.setUserAgent(userAgent);
   await thisPage.goto('about:blank');      // To verify that the browser is ready
+  await new Promise(resolve => setTimeout(resolve, 11000)); // 11-second delay
+  await thisBrowser.disconnect();
 }
 exports.initBrowser = async () => {
   if (!initPromise) {
@@ -45,7 +55,7 @@ exports.initBrowser = async () => {
       try {
         await cloudBrowser(7);  // Runs (detached) in the background
         console.log('Browser process ID:', thisBrowser.process().pid);
-        return { statusCode: 200, body: 'Chrome browser initialised with '+thisPage.url()};
+        return {statusCode: 200, body: 'Chrome browser initialised with '+thisPage.url()};
       } catch (err) {
         console.error(err);
         return {statusCode: 500, body: 'ERROR: Failed to initialise browser'};
@@ -60,6 +70,8 @@ let loadUrl = async (url) => {
   try {
     await thisPage.goto(url, {waitUntil: 'networkidle0'});
     var content = await thisPage.content();
+    await new Promise(resolve => setTimeout(resolve, 11000)); // 11-second delay
+    await thisBrowser.disconnect();
     return content;
   } catch (err) {
     console.error(err);
