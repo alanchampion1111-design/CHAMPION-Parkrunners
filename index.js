@@ -122,7 +122,7 @@ exports.browser = async (req) => {
   } else if (path === '/closeBrowser') {
     return exports.closeBrowser();
   } else {
-    console.error(err);
+    console.log('ERROR: Invalid function path, '+path);
     return {statusCode: 404, body: 'ERROR: Invalid function path, '+path};
   } 
 };
