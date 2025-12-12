@@ -14,7 +14,7 @@ const puppeteer = require('puppeteer');
 
 let thisBrowser;     // persists on server
 let thisPage;        // re-use same page
-let initialised = false;
+let initPromise;     // browser "finished" after initialised (although still active)
 let useTimeout;      // for browser session AND each page
 
 let cloudBrowser = async (
@@ -38,34 +38,33 @@ let cloudBrowser = async (
   thisPage = await thisBrowser.newPage();
   thisPage.setDefaultTimeout(useTimeout);  // Set the timeout for the page
   await thisPage.goto('about:blank');      // To verify that the browser is ready
-  await new Promise(resolve =>
-    setTimeout(resolve, 1000)    // Resolve after 1s with Browser running in the background
-  );
 }
 exports.initBrowser = async () => {
-  try {
-    if (!initialised) {
-      setTimeout(async () => {
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
         await cloudBrowser(7);  // Runs (detached) in the background
-        initialised = true;
-      },0);
-    }
-    console.log('Browser process ID:', thisBrowser.process().pid);
-    return {statusCode: 200, body: 'Chrome browser initialised with '+thisPage.url()
-    };
-  } catch (err) {
-    console.error(err);
-    return {statusCode: 500, body: 'ERROR: Failed to initialise browser'};
+        console.log('Browser process ID:', thisBrowser.process().pid);
+        return { statusCode: 200, body: 'Chrome browser initialised with '+thisPage.url()};
+      } catch (err) {
+        console.error(err);
+        return {statusCode: 500, body: 'ERROR: Failed to initialise browser'};
+      }
+    })();
   }
+  return initPromise;
 };
 
 let loadUrl = async (url) => {
-  if (!initialised) {
-    await exports.initBrowser();
+  await exports.initBrowser();
+  try {
+    await thisPage.goto(url, {waitUntil: 'networkidle0'});
+    var content = await thisPage.content();
+    return content;
+  } catch (err) {
+    console.error(err);
+    throw err;
   }
-  await thisPage.goto(url, {waitUntil: 'networkidle0'});
-  var content = await thisPage.content();
-  return content;
 };
 exports.getUrl = async (req) => {
   try {
@@ -78,25 +77,27 @@ exports.getUrl = async (req) => {
     return {statusCode: 200, body: content};
   } catch (err) {
     console.error(err);
-    return {statusCode: 500, body: 'ERROR: Failed to load URL'};
+    return {statusCode: 500, body: 'ERROR: Failed to load URL, '+url};
   }
 };
 
 exports.closeBrowser = async () => {
   try {
-    console.log('Browser process ID:', thisBrowser.process().pid);
+    if (thisPage) {
+      await thisPage.close();
+      thisPage = null;
+    }
     if (thisBrowser) {
+      console.log('Closing browser process ID: ', thisBrowser.process().pid);
       await thisBrowser.close();
       thisBrowser = null;
-      if (thisPage) {
-        await thisPage.close();
-        thisPage = null;
-      }
     }
+    initPromise = undefined;
     return {statusCode: 200, body: 'Browser closed successfully'};
   } catch (err) {
+    initPromise = undefined;
     console.error(err);
-    return {statusCode: 500, body: 'ERROR: Failed to close browser'};
+    return {statusCode: 500, body: 'ERROR: Failed to close browser/page, '+err};
   }
 };
 
@@ -109,6 +110,7 @@ exports.browser = async (req) => {
   } else if (path === '/closeBrowser') {
     return exports.closeBrowser();
   } else {
-    return {statusCode: 404, body: 'ERROR: Functional path Not Found'};
+    console.error(err);
+    return {statusCode: 404, body: 'ERROR: Invalid function path, '+path};
   } 
 };
