@@ -33,9 +33,9 @@ let cloudBrowser = async (
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--ssl-certificates-file=./www.parkrun.org.uk.crt',
+      // '--ssl-certificates-file=./www.parkrun.org.uk.crt',
       // '--ssl-certificates-dir=./',
-      // '--cert=./www.parkrun.org.uk.pem',
+      '--cert=./www.parkrun.org.uk.pem',
       '--verbose',
     ],
     timeout: useTimeout,    // max session length
@@ -44,7 +44,7 @@ let cloudBrowser = async (
   });  
   thisPage = await thisBrowser.newPage();
   thisPage.setDefaultTimeout(useTimeout);  // Set the timeout for the page
-  await page.setUserAgent(userAgent);
+  await thisPage.setUserAgent(userAgent);
   await thisPage.goto('about:blank');      // To verify that the browser is ready
   await new Promise(resolve => setTimeout(resolve, 11000)); // 11-second delay
   await thisBrowser.disconnect();
