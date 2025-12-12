@@ -39,7 +39,7 @@ let cloudBrowser = async (
       '--verbose',
     ],
     timeout: useTimeout,    // max session length
-    detached: true,         // ensure session with puppeteer persists after initial launch
+    // detached: true,         // ensure session with puppeteer persists after initial launch
     // ignoreHTTPSErrors: true
   });  
   thisPage = await thisBrowser.newPage();
