@@ -28,12 +28,12 @@ let cloudBrowser = async (
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
+      '--ssl-certificates-file=./www.parkrun.org.uk.crt',
       '--verbose',
     ],
     timeout: useTimeout,    // max session length
     detached: true,         // ensure session with puppeteer persists after initial launch
-    // ignoreHTTPSErrors: true,
-    // userDataDir: `/mnt/c/Users/ironc/AppData/Local/Google/Chrome/User Data/Profile\ 5`
+    // ignoreHTTPSErrors: true
   });  
   thisPage = await thisBrowser.newPage();
   thisPage.setDefaultTimeout(useTimeout);  // Set the timeout for the page
