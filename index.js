@@ -67,7 +67,7 @@ exports.initBrowser = async () => {
     initPromise = (async () => {
       try {
         await cloudBrowser(5);  // Runs (detached) in the background
-        return {statusCode: 200, body: 'Chrome browser initialised};
+        return {statusCode: 200, body: 'Chrome browser initialised'};
       } catch (err) {
         console.error(err);
         // consider a relaunch with args, --pull from Docker if image is not properly cached!
