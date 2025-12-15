@@ -120,7 +120,7 @@ exports.getUrl = async (req) => {
 };
 
 exports.closeBrowser = async () => {
-  try _
+  try {
     if (thisBrowserWSEp) {
       var thisBrowser = await puppeteer.connect(
         { browserWSEndpoint: thisBrowserWSEp }
