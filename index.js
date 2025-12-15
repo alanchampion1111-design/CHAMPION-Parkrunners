@@ -16,17 +16,18 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 
-let thisBrowser;     // persists on server
-let thisPage;        // re-use same page
-let initPromise;     // browser "finished" after initialised (although still active)
-let useTimeout;      // for browser session AND each page
+let thisBrowserWSEp;  // browser persists on server   
+let thisPageId;       // re-use same page      
+let initPromise;      // browser "finished" after initialised (although still active)
+let browserTimeout;   // for browser session
+const launchSECS = 30000;
+const pageSECS = 11000;   // 11 seconds between page accesses
 
 let cloudBrowser = async (
   myTime = 5) =>
 {
-  useTimeout = myTime*60*1000;
-
-  thisBrowser = await puppeteer.launch({  // variable delay if image not cached
+  browserTimeout = myTime*60*1000;
+  var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
     headless: true,
     executablePath: '/usr/bin/google-chrome',
     args: [
@@ -38,26 +39,38 @@ let cloudBrowser = async (
       '--cert=./www.parkrun.org.uk.pem',
       '--verbose',
     ],
-    timeout: useTimeout,    // max session length
+    timeout: launchTimeout,   // max launch time
     // detached: true,         // ensure session with puppeteer persists after initial launch
     // ignoreHTTPSErrors: true
-  });  
-  thisPage = await thisBrowser.newPage();
-  thisPage.setDefaultTimeout(useTimeout);  // Set the timeout for the page
+  });
+  // Set a timer to close the browser by default after the timeout
+  const browserTimer = setTimeout(async () => {
+    try {
+      console.warn('WARNING: Closing browser due to timeout:',browserTimeout);
+      await thisBrowser.close();
+    } catch (err) {
+      console.error('ERROR: closing browser:',err);
+    }
+  }, browserTimeout);
+  thisBrowserWSEp = thisBrowser.wsEndpoint();
+  var thisPage = await thisBrowser.newPage();
+  thisPageId = thisPage.target().targetId;
+  thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
   await thisPage.setUserAgent(userAgent);
   await thisPage.goto('about:blank');      // To verify that the browser is ready
-  await new Promise(resolve => setTimeout(resolve, 11000)); // 11-second delay
+  await new Promise(resolve => setTimeout(resolve,pageSECS));
+  console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
   await thisBrowser.disconnect();
 }
 exports.initBrowser = async () => {
   if (!initPromise) {
     initPromise = (async () => {
       try {
-        await cloudBrowser(7);  // Runs (detached) in the background
-        console.log('Browser process ID:',thisBrowser.process().pid,'With URL,',thisPage.url);
-        return {statusCode: 200, body: 'Chrome browser initialised with '+thisPage.url()};
+        await cloudBrowser(5);  // Runs (detached) in the background
+        return {statusCode: 200, body: 'Chrome browser initialised};
       } catch (err) {
         console.error(err);
+        // consider a relaunch with args, --pull from Docker if image is not properly cached!
         return {statusCode: 500, body: 'ERROR: Failed to initialise browser'};
       }
     })();
@@ -66,11 +79,25 @@ exports.initBrowser = async () => {
 };
 
 let loadUrl = async (url) => {
-  await exports.initBrowser();
   try {
-    await thisPage.goto(url, {waitUntil: 'networkidle0'});
+    var thisBrowser = await puppeteer.connect({
+      { browserWSEndpoint: thisBrowserWSEp }
+    );
+    var thisPage = await thisBrowser.pages()
+      .then(pages => pages.find(page => page
+        .target().targetId === thisPageId)
+      );
+    console.log('Reconnected to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
+    thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
+    console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
+    await thisPage.setUserAgent(userAgent);
+    console.log('Loading page with URL,',thisPage.url());
+    await thisPage.goto(url,
+      {waitUntil: 'networkidle0'}
+    );
     var content = await thisPage.content();
-    await new Promise(resolve => setTimeout(resolve, 11000)); // 11-second delay
+    console.log('Content of page is:\n',content);
+    await new Promise(resolve => setTimeout(resolve,pageSECS));
     await thisBrowser.disconnect();
     return content;
   } catch (err) {
@@ -85,7 +112,6 @@ exports.getUrl = async (req) => {
       return {statusCode: 400, body: 'ERROR: Missing URL parameter'};
     }
     var content = await loadUrl(url);
-    console.log('Browser process ID:',thisBrowser.process().pid,'With URL,',thisPage.url());
     return {statusCode: 200, body: content};
   } catch (err) {
     console.error(err);
@@ -94,20 +120,31 @@ exports.getUrl = async (req) => {
 };
 
 exports.closeBrowser = async () => {
-  try {
-    if (thisPage) {
-      await thisPage.close();
-      thisPage = null;
+  try _
+    if (thisBrowserWSEp) {
+      var thisBrowser = await puppeteer.connect(
+        { browserWSEndpoint: thisBrowserWSEp }
+      );
+      if (thisPageId) {
+        var thisPage = await thisBrowser.pages()
+          .then(pages => pages.find(page => page
+            .target().targetId === thisPageId)
+          );
+        await thisPage.close();
+        thisPageId = null;
+      }
+      if (thisBrowser.isConnected()) {
+        await thisBrowser.close();
+      }
     }
-    if (thisBrowser) {
-      console.log('Closing browser process ID:',thisBrowser.process().pid);
-      await thisBrowser.close();
-      thisBrowser = null;
-    }
+    thisBrowserWSEp = null;
+    console.log('Closing browser on completion');
     initPromise = undefined;
     return {statusCode: 200, body: 'Browser closed successfully'};
   } catch (err) {
     initPromise = undefined;
+    thisBrowserWSEp = null;
+    thisPageId = null;
     console.error(err);
     return {statusCode: 500, body: 'ERROR: Failed to close browser/page, '+err};
   }
