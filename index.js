@@ -54,7 +54,7 @@ exports.initBrowser = async () => {
     initPromise = (async () => {
       try {
         await cloudBrowser(7);  // Runs (detached) in the background
-        console.log('Browser process ID:', thisBrowser.process().pid);
+        console.log('Browser process ID:',thisBrowser.process().pid,'With URL,',thisPage.url);
         return {statusCode: 200, body: 'Chrome browser initialised with '+thisPage.url()};
       } catch (err) {
         console.error(err);
@@ -85,7 +85,7 @@ exports.getUrl = async (req) => {
       return {statusCode: 400, body: 'ERROR: Missing URL parameter'};
     }
     var content = await loadUrl(url);
-    console.log('Browser process ID:', thisBrowser.process().pid);
+    console.log('Browser process ID:',thisBrowser.process().pid,'With URL,',thisPage.url());
     return {statusCode: 200, body: content};
   } catch (err) {
     console.error(err);
@@ -100,7 +100,7 @@ exports.closeBrowser = async () => {
       thisPage = null;
     }
     if (thisBrowser) {
-      console.log('Closing browser process ID: ', thisBrowser.process().pid);
+      console.log('Closing browser process ID:',thisBrowser.process().pid);
       await thisBrowser.close();
       thisBrowser = null;
     }
