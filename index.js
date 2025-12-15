@@ -80,7 +80,7 @@ exports.initBrowser = async () => {
 
 let loadUrl = async (url) => {
   try {
-    var thisBrowser = await puppeteer.connect({
+    var thisBrowser = await puppeteer.connect(
       { browserWSEndpoint: thisBrowserWSEp }
     );
     var thisPage = await thisBrowser.pages()
