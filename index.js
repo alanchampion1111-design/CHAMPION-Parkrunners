@@ -15,6 +15,7 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+const url = require('url');
 let thisBrowserWSEp;  // browser persists on server   
 let thisPageId;       // re-use same page      
 let initPromise;      // browser "finished" after initialised (although still active)
@@ -54,15 +55,17 @@ let cloudBrowser = async (
   thisBrowserWSEp = thisBrowser.wsEndpoint();
   try {
     var thisPage = await thisBrowser.newPage();
-    thisPageId = await thisBrowser.pages()
-      .then(pages => pages[pages.length-1]
-        .target().targetId
-      );
-    console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
     thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
     await thisPage.setUserAgent(userAgent);
     await thisPage.goto('about:blank');    // To verify that the browser is ready
     console.log('Blank page loaded');
+    thisPage.target().targetId;
+    console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
+    thisPageId = await thisBrowser.pages()
+      .then(pages => pages[pages.length-1]
+        .target().targetId
+      );
+    console.log('With retained page ID,',thisPageId);
   } catch (err) {
     console.error('ERROR: Getting page ID:', err);
   }
@@ -157,7 +160,8 @@ exports.stopBrowser = async () => {
 };
 
 exports.browser = async (req) => {
-  var path = req.path;
+  var parsedUrl = url.parse(req.url, true);
+  var path = parsedUrl.pathname;
   if (path === '/initBrowser') {
     return exports.initBrowser();
   } else if (path === '/getUrl') {
