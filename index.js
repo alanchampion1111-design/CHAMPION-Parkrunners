@@ -1,4 +1,4 @@
-// Multiple steps to do:
+CS// Multiple steps to do:
 //    0. Verify base image is in Artifact Registry (done)
 //    1. Verify triggers gets latest sources from GitHub including this index.js file (done)
 //    2. Verify build image uses Docker to install Chrome (done)
@@ -20,7 +20,7 @@ let thisBrowserWSEp;  // browser persists on server
 let thisPageId;       // re-use same page      
 let initPromise;      // browser "finished" after initialised (although still active)
 let browserTimeout;   // for browser session
-const launchSECS = 30000;
+const launchSECS = 45000;
 const pageSECS = 11000;   // 11 seconds between page accesses
 
 let cloudBrowser = async (
@@ -39,7 +39,7 @@ let cloudBrowser = async (
       '--cert=./www.parkrun.org.uk.pem',
       '--verbose',
     ],
-    timeout: launchTimeout,   // max launch time
+    timeout: launchSECS,       // max launch time
     // detached: true,         // ensure session with puppeteer persists after initial launch
     // ignoreHTTPSErrors: true
   });
@@ -66,7 +66,7 @@ exports.initBrowser = async () => {
   if (!initPromise) {
     initPromise = (async () => {
       try {
-        await cloudBrowser(5);  // Runs (detached) in the background
+        await cloudBrowser(5);  // Expected to continue after launch in the background
         return {statusCode: 200, body: 'Chrome browser initialised'};
       } catch (err) {
         console.error(err);
