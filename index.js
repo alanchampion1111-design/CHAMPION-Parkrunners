@@ -54,12 +54,13 @@ let cloudBrowser = async (
   }, browserTimeout);
   thisBrowserWSEp = thisBrowser.wsEndpoint();
   var thisPage = await thisBrowser.newPage();
-  thisPageId = thisPage.target().targetId;
+  var target = await thisPage.target();
+  thisPageId = target.targetId;
+  console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
   thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
   await thisPage.setUserAgent(userAgent);
-  await thisPage.goto('about:blank');      // To verify that the browser is ready
-  await new Promise(resolve => setTimeout(resolve,pageSECS));
-  console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
+  await thisPage.goto('about:blank');    // To verify that the browser is ready
+  console.log('Blank page loaded');
   await thisBrowser.disconnect();
 }
 exports.initBrowser = async () => {
