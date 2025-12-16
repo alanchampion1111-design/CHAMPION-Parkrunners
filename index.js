@@ -1,4 +1,4 @@
-CS// Multiple steps to do:
+// Multiple steps to do:
 //    0. Verify base image is in Artifact Registry (done)
 //    1. Verify triggers gets latest sources from GitHub including this index.js file (done)
 //    2. Verify build image uses Docker to install Chrome (done)
