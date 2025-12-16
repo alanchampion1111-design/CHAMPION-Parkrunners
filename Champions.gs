@@ -9,17 +9,16 @@
 /       (ReprotectEachRunnerResultsSheets - Ctrl+Alt+Shift+7)
 /   2.  Clean format for result(s)
 /       (CleanFormatforPastedRunResults - Ctrl+Alt+Shift+1)
-/   3.   Scroll beyond last result
+/   3.  Scroll beyond last result
 /       (ScrollBeyondLastResult - Press down arrow in K3)
 /   4.  Import latest result for each runner
 /       (ImportLatestResultForEachRunner - Ctrl+Alt+Shift+9)
 /   5.  Generate charts from Groups
 /       (GenerateChartsFromGroupsSheet - Ctrl+Alt+Shift+0)
 / 	6.  Set legend colours for Groups
-/       ("SetLegendCellColoursOnSheet - Ctrl+Alt+Shift+4)
+/       (SetLegendCellColoursOnSheet)
 /---------------------------------------------------------------------------------------
  */
-
 
 // @OnlyCurrentDoc
 // @scope https://www.googleapis.com/auth/script.external_request
@@ -47,6 +46,17 @@ const recentYRS = 3;          // filter comparison graphs based to most recent y
 /
 /   The following definitions and functions support the automatic protection
 /   of each runner's result sheets to allow safe entry of results by others.
+/   The heirarchy of functions are:
+/     ReprotectEachRunnerResultsSheets
+/         CreateRunnerResultsSheet (if new runner)
+/         EnsureBlankResultsRange (range for new results)
+/       ReallowRunnerResultsSheetWithException
+/         UnprotectResultsSheet
+/         ProtectResultsSheetWithException
+/       ReprotectResultsRange
+/         UnprotectResultsRangeOnSheet
+/         GetResultsAdders
+/         ProtectResultsRangeByEditor
 /
 /  ---------------------------------------------------------------------------
 */
@@ -90,21 +100,34 @@ function EnsureBlankResultsRange(numRows=numBlankROWS) {
 }
 
 /**
+ * Unprotect entire sheet (including exceptions)
+ */
+function UnprotectResultsSheet(sheet) {
+  var protections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
+  if (protections.length > 0) protections[0].remove();
+}
+
+/**
+ * Protect entire sheet with exception (pending permit)
+ */
+function ProtectResultsSheetWithException(sheet,exceptionRange) {
+  var sheetProtection = sheet.protect();
+  // Only the worksheet owner is permitted to allow this range exception 
+  var protectionRange = sheet.getRange(exceptionRange);
+  // Exception range to be restricted thereafter
+  sheetProtection.setUnprotectedRanges([protectionRange]);
+}
+
+/**
  * Reallows editing on a specific range of a protected sheet.
  *  Removes existing protection, adds an exception for the specified range,
  *  and reapplies protection with domain edit disabled.
  *    @param {string} rangeNotation - The A1 notation of the range to allow editing.
  */
-function ReallowRunnerResultsSheetException(rangeNotation) {
+function ReallowRunnerResultsSheetWithException(rangeNotation) {
   var sheet = SpreadsheetApp.getActiveSheet();
-  var protectionRange = sheet.getRange(rangeNotation);
-  // Remove existing sheet protection
-  var protections = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
-  if (protections.length > 0) protections[0].remove();
-  // Apply  new protection with exception
-  var sheetProtection = sheet.protect();
-  sheetProtection.setUnprotectedRanges([protectionRange]);
-  // Restrict those permitted from allowing others to add results 
+  UnprotectResultsSheet(sheet);
+  ProtectResultsSheetWithException(sheet,rangeNotation);
   var runnerName = sheet.getName();
   Logger.log("Reprotected "+runnerName+"'s results except for the new results range, "+rangeNotation);
 }
@@ -114,8 +137,8 @@ function ReallowRunnerResultsSheetException(rangeNotation) {
  *    @param {string} runnerName - The name of the runner.
  *  @return {string[]} An array of user names permitted to add results.
  */
-function GetResultsAdders(runnerName) {
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+function GetResultsAddersForRunner(runnerName) {
+  // var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const addersCOLUMN = "D";     // Where the results adder(s) are in the Runners table
   var indexRow = allRunnersSHEET.getRange("A3:A").getValues().map(function(value) { 
     return value[0];
@@ -133,27 +156,41 @@ function GetResultsAdders(runnerName) {
 }
 
 /**
+ * Remove any range protections on a runner's sheet (typically one only)
+ */
+function UnprotectResultsRangeOnSheet(sheet) {
+  var protections = sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE);
+  protections.forEach(function(protection) {
+    protection.remove();
+  });
+}
+
+/**
+ * Allow the new range protection on a runner's sheet
+ */
+function ProtectResultsRangeByEditor(editor,newProtection) {
+  try {
+    newProtection.addEditor(editor);
+  } catch (err) {
+    Logger.log("Error adding editor: "+editor+". Error: "+err+" because not a google email address");
+  }
+}
+
+/**
  * Reprotects a specific range of a sheet, allowing only specified users to edit.
  *    @param {string} rangeNotation - The A1 notation of the range to protect.
  *  @return {string[]} An array of user names permitted to edit the range.
  */
 function ReprotectResultsRange(rangeNotation) {
   var sheet = SpreadsheetApp.getActiveSheet();
-  var protections = sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE);
-  protections.forEach(function(protection) {
-    protection.remove();
-  });
+  UnprotectResultsRangeOnSheet(sheet);
   var protectionRange = sheet.getRange(rangeNotation);
   var newProtection = protectionRange.protect();
   var runnerName = sheet.getName();
-  var adders = GetResultsAdders(runnerName);
+  var adders = GetResultsAddersForRunner(runnerName);
   if (adders && adders.length > 0) {
     adders.forEach(function(adder) {
-      try {
-        newProtection.addEditor(adder);
-      } catch (e) {
-        Logger.log("Error adding editor: "+adder+". Error: "+e+" because not a google email address");
-      }
+      ProtectResultsRangeByEditor(adder,newProtection);
     });
     Logger.log("Reprotected new range, "+rangeNotation+" on "+runnerName+
       "'s results sheet, except by "+(adders.join(", ")));
@@ -171,7 +208,7 @@ function ReprotectResultsRange(rangeNotation) {
  *    @param {number} parkrunnerId - The Park Runner ID
  * @return {Sheet} The new results sheet
  */
-function Create1stNameResultsSheet(
+function CreateRunnerResultsSheet(
   runnerFullName = ["Joe","Hodgson"],  // Allow for test case!
   parkrunnerId = 11610909)
 {
@@ -219,12 +256,12 @@ function ReprotectEachRunnerResultsSheets() {
       var thisRow = index+runners1stROW;
       var parkrunnerId = allRunnersSHEET.getRange(
         thisRow,parkrunnerIdCOLUMN).getValue();
-      resultsSheet = Create1stNameResultsSheet(runnerFullName,parkrunnerId);
+      resultsSheet = CreateRunnerResultsSheet(runnerFullName,parkrunnerId);
       if (!resultsSheet) return;
     } 
     resultsSheet.activate();
     var rangeNotation = EnsureBlankResultsRange(numBlankROWS);
-    ReallowRunnerResultsSheetException(rangeNotation);
+    ReallowRunnerResultsSheetWithException(rangeNotation);
     var adders = ReprotectResultsRange(rangeNotation);
   });
   Logger.log("Protection complete on each runner's results sheet");
@@ -257,6 +294,17 @@ function ScrollBeyondLastResult() {
   sheet.getRange(i+1,pasteCOLUMN).activate();
 }
 
+/**
+ * Sets up skipping to the bottom (on selecting K3 cell)
+ *  Instructions to set up (and execute?) the trigger:
+ *    1. Go to the Apps Script (Macros) editor.
+ *    2. Click on the clock icon (Triggers) in the left sidebar.
+ *    3. Click on "Create trigger".
+ *    4. Set up the trigger with the following settings:
+ *        - Choose function: onSelectionChange
+ *        - Select event type: On select
+ *        - Save
+ */
 function onSelectionChange(e) { 
   var sheet = e.source.getActiveSheet();
   var range = e.range;
@@ -454,36 +502,44 @@ function CleanFormatforPastedRunResults(
 /**
  * For the purpose of this trial, the following session & connection functions rely on
  * The functions include:
- *    InitBrowser
- *    GetUrl
- *    CloseBrowser
+ *    OpenChromeBrowser
+ *    AccessPage
+ *    CloseChromeBrowser
  */
 
 const browserURL = 'https://browser-automation-service-224251628103.europe-west1.run.app';    // Google Cloud service in operation
 const sampleURL = 'https://www.example.com';  // default test
 
-async function OpenBrowser() {
+async function OpenChromeBrowser() {
   const initBrowserURL = browserURL+'/initBrowser';
-  var response = await UrlFetchApp.fetch(
-    initBrowserURL // , {muteHttpExceptions: true}
-  );
-  Logger.log(response.getContentText());
+  try {
+    var response = UrlFetchApp.fetch(initBrowserURL);
+    Logger.log(response.getContentText());
+  } catch (err) {
+    Logger.log(err);
+  }
 }
 
-async function GetUrl(
-  url = sampleURL)
-{
-  var getBrowserURL = browserURL+'/getUrl?url='+encodeURIComponent(url);
-  var response = await UrlFetchApp.fetch(getBrowserURL);
-  var html = response.getContentText();
-  Logger.log(html);
-  return html; 
+async function AccessPage(
+  url = sampleURL
+) {
+  const getBrowserURL = browserURL+'/getUrl?url='+url;
+  try {
+    var response = await UrlFetchApp.fetch(getBrowserURL);
+    return response.getContentText();
+  } catch (err) {
+    Logger.log(err);
+  }
 }
 
-async function CloseBrowser() {
-  const closeBrowserURL = browserURL+'/closeBrowser';
-  var response = await UrlFetchApp.fetch(closeBrowserURL);
-  Logger.log(response.getContentText());
+async function CloseChromeBrowser() {
+  const stopBrowserURL = browserURL+'/stopBrowser';
+  try {
+    var response = UrlFetchApp.fetch(stopBrowserURL);
+  	Logger.log(response.getContentText());
+  } catch (err) {
+    Logger.log(err);
+  }
 }
 
 const parkrunURL = 'https://www.parkrun.org.uk';
@@ -492,11 +548,11 @@ const parkrunnerURL = parkrunURL+'/parkrunner/';
 async function GetParkrunnerResultsPage(parkrunnerId = '777764') {
   thisParkrunnerURL = parkrunnerURL+'/'+parkrunnerId +'/all/';
   try {
-    var htmlContent = await GetUrl(thisParkrunnerURL);
+    var htmlContent = await AccessPage(thisParkrunnerURL);
     Logger.log(htmlContent);
     return htmlContent;
   } catch(error) {
-    Logger.log('ERROR: Unable to access url, '+thisParkrunnerURL+'...\n'+error);
+    Logger.log('ERROR: Unable to access page, '+thisParkrunnerURL+'...\n'+error);
     return null;
   }
 }
@@ -511,6 +567,8 @@ function CopyLatestResultForRunner(
 {
   const resultTableINDEX = 2;   // 3rd table for All Results at the bottom
   const resultROW = 1;          // 1st row (excluding header row)
+  // WARNING: Row does not (yet) show Age-Category position,
+  // nor positions for Gender or Age-Grade (%age)
   var allResults = GetParkrunnerResultsPage(parkrunnerId);
   if (allResults) {
     var tables = allResults.match(/<table>.*?<\/table>/gs);
@@ -564,11 +622,11 @@ function PasteLatestResultForRunner(
  * Imports the latest results for each of our runners from parkrun.org.uk.
  */
 async function ImportLatestResultForEachRunner() {
-  var runnerNames = allRunnersSHEET.getRange("A"+runnersStartROW+":A")
-    .getValues().filter(String);
-  await OpenBrowser();                      // 1. Verify Chrome operational
-  var htmlContent = GetUrl();         // 2. Verify sample functional
-  htmlContent = GetUrl(parkrunURL);   // 3. Ensure Parkrun allowed
+  await OpenChromeBrowser();          // 1. Verify Chrome operational
+  var htmlContent = await GetUrl(parkrunURL);   // 3. Ensure Parkrun allowed
+  var runnerNames = allRunnersSHEET.getRange(
+    "A"+runnersStartROW+":A"
+  ).getValues().filter(String);
   runnerNames.forEach(function(runnerName,index) {
     var parkrunnerId = allRunnersSHEET.getRange(
       runnersStartROW+index,parkrunnerIdCOLUMN).getValue();
@@ -580,7 +638,7 @@ async function ImportLatestResultForEachRunner() {
       }
     }
   });
-  await CloseBrowser();
+  await CloseChromeBrowser();
 }
 
 /* ---------------------------------------------------------------------------
@@ -1068,8 +1126,7 @@ function onOpen() {
       "\u00A0".repeat(11)+"Ctrl+Alt+Shift+7",'ReprotectEachRunnerResultsSheets')
     .addItem("Generate charts from Groups"+
       "\u00A0".repeat(19)+"Ctrl+Alt+Shift+0",'GenerateChartsFromGroupsSheet')
-    .addItem("Colour legends for Groups"+
-      "\u00A0".repeat(21)+"Ctrl+Alt+Shift+4",
+    .addItem("Colour legends for Groups",
       'SetLegendCellColoursOnSheet')
     // .insertMenu(ui,5)   // ideally before Tools 
     .addToUi();
