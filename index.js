@@ -45,23 +45,27 @@ let cloudBrowser = async (
   // Set a timer to close the browser by default after the timeout
   const browserTimer = setTimeout(async () => {
     try {
-      console.warn('WARNING: Closing browser due to timeout:',browserTimeout);
+      console.warn('WARNING: Terminating browser due to timeout:',browserTimeout);
       await thisBrowser.close();
     } catch (err) {
-      console.error('ERROR: closing browser:',err);
+      console.error('ERROR: Terminating browser on timeout:',err);
     }
   }, browserTimeout);
   thisBrowserWSEp = thisBrowser.wsEndpoint();
-  var thisPage = await thisBrowser.newPage();
-  console.log('thisPage:', thisPage);
-  var target = await thisPage.target();
-  console.log('target:', target);
-  thisPageId = target.targetId;
-  console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
-  thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
-  await thisPage.setUserAgent(userAgent);
-  await thisPage.goto('about:blank');    // To verify that the browser is ready
-  console.log('Blank page loaded');
+  try {
+    var thisPage = await thisBrowser.newPage();
+    thisPageId = await thisBrowser.pages()
+      .then(pages => pages[pages.length-1]
+        .target().targetId
+      );
+    console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
+    thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
+    await thisPage.setUserAgent(userAgent);
+    await thisPage.goto('about:blank');    // To verify that the browser is ready
+    console.log('Blank page loaded');
+  } catch (err) {
+    console.error('ERROR: Getting page ID:', err);
+  }
   await thisBrowser.disconnect();
 }
 exports.initBrowser = async () => {
@@ -71,7 +75,7 @@ exports.initBrowser = async () => {
         await cloudBrowser(5);  // Expected to continue after launch in the background
         return {statusCode: 200, body: 'Chrome browser initialised'};
       } catch (err) {
-        console.error(err);
+        console.error('ERROR: Failed to initialise browser:',err);
         // consider a relaunch with args, --pull from Docker if image is not properly cached!
         return {statusCode: 500, body: 'ERROR: Failed to initialise browser'};
       }
@@ -103,7 +107,7 @@ let loadUrl = async (url) => {
     await thisBrowser.disconnect();
     return content;
   } catch (err) {
-    console.error(err);
+    console.error('ERROR: Failed to retrieve page:',err);
     throw err;
   }
 };
@@ -121,7 +125,7 @@ exports.getUrl = async (req) => {
   }
 };
 
-exports.closeBrowser = async () => {
+exports.stopBrowser = async () => {
   try {
     if (thisBrowserWSEp) {
       var thisBrowser = await puppeteer.connect(
@@ -140,15 +144,15 @@ exports.closeBrowser = async () => {
       }
     }
     thisBrowserWSEp = null;
-    console.log('Closing browser on completion');
+    console.log('Terminating browser on completion');
     initPromise = undefined;
-    return {statusCode: 200, body: 'Browser closed successfully'};
+    return {statusCode: 200, body: 'Browser terminated successfully'};
   } catch (err) {
     initPromise = undefined;
     thisBrowserWSEp = null;
     thisPageId = null;
     console.error(err);
-    return {statusCode: 500, body: 'ERROR: Failed to close browser/page, '+err};
+    return {statusCode: 500, body: 'ERROR: Failed to close page and/or terminate browser, '+err};
   }
 };
 
@@ -158,8 +162,8 @@ exports.browser = async (req) => {
     return exports.initBrowser();
   } else if (path === '/getUrl') {
     return exports.getUrl(req);
-  } else if (path === '/closeBrowser') {
-    return exports.closeBrowser();
+  } else if (path === '/stopBrowser') {
+    return exports.stopBrowser();
   } else {
     console.log('ERROR: Invalid function path, '+path);
     return {statusCode: 404, body: 'ERROR: Invalid function path, '+path};
