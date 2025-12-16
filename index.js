@@ -15,7 +15,6 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
-
 let thisBrowserWSEp;  // browser persists on server   
 let thisPageId;       // re-use same page      
 let initPromise;      // browser "finished" after initialised (although still active)
@@ -54,7 +53,9 @@ let cloudBrowser = async (
   }, browserTimeout);
   thisBrowserWSEp = thisBrowser.wsEndpoint();
   var thisPage = await thisBrowser.newPage();
+  console.log('thisPage:', thisPage);
   var target = await thisPage.target();
+  console.log('target:', target);
   thisPageId = target.targetId;
   console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
   thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
