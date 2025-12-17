@@ -3,11 +3,11 @@
 //    1. Verify triggers gets latest sources from GitHub including this index.js file (done)
 //    2. Verify build image uses Docker to install Chrome (done)
 //    3. Verify Chrome browser works directly on server after build (done)
-//    4. Verify server side, thisBrowser activated by client from Google Spreadsheet app (tbd)
-//    5. Verify sample page retrieved ok and that thisBrowser and thisPage persists (tbd)
-//    6. Upload profile/certificates for access to www.parkrun.org.uk
-//    7. Verify allowed to load content for www.parkrun.org.uk
-//    8. Verify stealth access to individual parkrunner results table (although disallowed)
+//    4. Verify server side, thisBrowser activated by client from Google Spreadsheet app (done)
+//    5. Verify sample page retrieved ok and that thisBrowser and thisPage persists (done)
+//    6. Upload profile/certificates for access to www.parkrun.org.uk (done)
+//    7. Verify allowed to load content for www.parkrun.org.uk (done)
+//    8. Verify stealth access to individual parkrunner results table (tbd - although disallowed)
 
 // const functions = require('@google-cloud/functions-framework');
 // const puppeteer = require('puppeteer');
@@ -149,11 +149,11 @@ exports.stopBrowser = async (_,res) => {
       if (thisPageId) {
         var thisPage = (await thisBrowser.pages())
           .find(page => page.target()._targetId === thisPageId);
-        if (thisPage && thisPageId) {
+        if (thisPage) {
           await thisPage.close();
           console.log('Page closed successfully - Page Id:',thisPageId);
         } else {
-          console.warn('WARNING: Page previously closed or timed out - Page Id:',thisPageId');
+          console.warn('WARNING: Page previously closed or timed out - Page Id:',thisPageId);
         }
       }
       if (thisBrowser && thisBrowser.isConnected()) {
@@ -161,11 +161,11 @@ exports.stopBrowser = async (_,res) => {
         console.log('Browser terminated successfully - WS endpoint:',thisBrowserWSEp');
         res.status(200).send('Browser terminated successfully');
       } else {
-        console.warn(WARNING: Browser previously aborted or timed out - WS endpoint:',thisBrowserWSEp');
+        console.warn(WARNING: Browser previously aborted or timed out - WS endpoint:',thisBrowserWSEp);
         res.status(204).send('WARNING: Browser previously aborted or timed out');
       }
     } else {
-      console.warn(WARNING: Browser previously terminated - WS endpoint:',thisBrowserWSEp');
+      console.warn(WARNING: Browser previously terminated - WS endpoint:',thisBrowserWSEp);
       res.status(204).send('WARNING: Browser previously terminated');
     }
   } catch (err) {
