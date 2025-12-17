@@ -513,7 +513,7 @@ const sampleURL = 'https://www.example.com';  // default test
 async function OpenChromeBrowser() {
   const initBrowserURL = browserURL+'/initBrowser';
   try {
-    var response = UrlFetchApp.fetch(initBrowserURL);
+    var response = await UrlFetchApp.fetch(initBrowserURL);
     Logger.log(response.getContentText());
   } catch (err) {
     Logger.log(err);
@@ -535,7 +535,7 @@ async function AccessPage(
 async function CloseChromeBrowser() {
   const stopBrowserURL = browserURL+'/stopBrowser';
   try {
-    var response = UrlFetchApp.fetch(stopBrowserURL);
+    var response = await UrlFetchApp.fetch(stopBrowserURL);
   	Logger.log(response.getContentText());
   } catch (err) {
     Logger.log(err);
@@ -622,8 +622,9 @@ function PasteLatestResultForRunner(
  * Imports the latest results for each of our runners from parkrun.org.uk.
  */
 async function ImportLatestResultForEachRunner() {
-  await OpenChromeBrowser();          // 1. Verify Chrome operational
-  var htmlContent = await GetUrl(parkrunURL);   // 3. Ensure Parkrun allowed
+  await OpenChromeBrowser();        // 1. Verify Chrome browser operational
+  var htmlContent = await AccessPage();   // 2. Verify Page access functional
+  htmlContent = await AccessPage(parkrunURL);   // 3. Ensure Parkrun allowed
   var runnerNames = allRunnersSHEET.getRange(
     "A"+runnersStartROW+":A"
   ).getValues().filter(String);
