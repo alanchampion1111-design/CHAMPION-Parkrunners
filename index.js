@@ -18,10 +18,10 @@ const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 const url = require('url');
 let thisBrowserWSEp;  // browser persists on server   
 let thisPageId;       // re-use same page      
-let initPromise;      // browser "finished" after initialised (although still active)
 let browserTimeout;   // for browser session
 const launchSECS = 45000;
-const pageSECS = 11000;   // 11 seconds between page accesses
+const pageSECS = 15000;   // minimum of 10 seconds between page accesses on parkrun site
+let initPromise;      // browser "finished" after initialised (although still active)
 
 let cloudBrowser = async (
   myTime = 5) =>
@@ -44,7 +44,7 @@ let cloudBrowser = async (
     // ignoreHTTPSErrors: true
   });
   // Set a timer to close the browser by default after the timeout
-  const browserTimer = setTimeout(async () => {
+  let browserTimer = setTimeout(async () => {
     try {
       console.warn('WARNING: Terminating browser due to timeout:',browserTimeout);
       await thisBrowser.close();
@@ -52,78 +52,96 @@ let cloudBrowser = async (
       console.error('ERROR: Terminating browser on timeout:',err);
     }
   }, browserTimeout);
-  thisBrowserWSEp = thisBrowser.wsEndpoint();
+  thisBrowserWSEp = thisBrowser ? thisBrowser.wsEndpoint() : null;  // return to client (although also global)
+  console.log('Retained browser WS Endpoint:',thisBrowserWSEp);
   try {
     var thisPage = await thisBrowser.newPage();
-    thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
-    await thisPage.setUserAgent(userAgent);
-    await thisPage.goto('about:blank');    // To verify that the browser is ready
-    console.log('Blank page loaded');
-    thisPageId = await thisPage.target()._targetId;
-    console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
+    if (thisPage) {
+      thisPageId = await thisPage.target()._targetId;
+      console.log('Retained page ID,',thisPageId);
+      thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
+      await thisPage.setUserAgent(userAgent);
+      await thisPage.goto('about:blank');    // To verify that the browser is ready
+      console.log('Blank page loaded');
+    } else {
+      console.warn('WARNING: Potentially failed to retain page ID,',thisPageId);
+    }
   } catch (err) {
     console.error('ERROR: Getting page ID:', err);
   }
-  await thisBrowser.disconnect();
 }
-exports.initBrowser = async () => {
+exports.initBrowser = async (_,res) => {
   if (!initPromise) {
     initPromise = (async () => {
       try {
-        await cloudBrowser(5);  // Expected to continue after launch in the background
-        return {statusCode: 200, body: 'Chrome browser initialised'};
+        await cloudBrowser(7);  // Launched ok, but browser active in background
+        res.status(200).send(thisBrowserWSEp);
       } catch (err) {
         console.error('ERROR: Failed to initialise browser:',err);
         // consider a relaunch with args, --pull from Docker if image is not properly cached!
-        return {statusCode: 500, body: 'ERROR: Failed to initialise browser'};
+        res.status(500).send('ERROR: Failed to initialise browser, '+err);
+      } finally {
+        / NEVER disconnect because this loses the pupeteer Stealth (plugin) setting!
+        // await thisBrowser.disconnect();
+        console.log('Returning immediately after (attempt at) launching browser');
       }
     })();
+  } else {  // do nothing because browser previously launched
+    res.status(200).send(thisBrowserWSEp);
   }
-  return initPromise;
 };
 
-let loadUrl = async (url) => {
+let loadUrl = async (thisUrl) => {
   console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
   try {
-    var thisBrowser = await puppeteer
-      .connect({ browserWSEndpoint: thisBrowserWSEp });
-    var thisPage = (await thisBrowser.pages())
-      .find(page => page.target()._targetId === thisPageId);
-    if (thisPage) {
-      await thisPage.setDefaultTimeout(pageSECS);
+    if (!thisBrowserWSEp) {
+      console.error('ERROR: Persistent browser not found:',thisBrowserWSEp,'with timeout', browserTimeout);
+      throw new Error('Persistent browser not found');
     } else {
-      console.error('ERROR: Persistent page not found:', thisPageId);
+      console.log('Persistent browser not found,',browserTimeout);
+      var thisBrowser = await puppeteer    // actually reconnect
+        .connect({ browserWSEndpoint: thisBrowserWSEp });
+      var thisPage = (await thisBrowser.pages())
+        .find(page => page.target()._targetId === thisPageId);
+      if (thisPage) {
+        await thisPage.setDefaultTimeout(pageSECS);
+      } else {
+        console.error('ERROR: Persistent page not found:',thisPageId,'with timeout', pageSECS);
+        throw new Error('Persistent page not found');
+      }
+      console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
+      console.log('Loading page with URL,',thisUrl);
+      await thisPage.goto(url,{waitUntil: 'networkidle0'});
+      var content = await thisPage.content();
+      console.log('Content of page is:\n',content);
+      return content;
     }
-    console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
-    console.log('Loading page with URL,',url);
-    await thisPage.goto(url,
-      {waitUntil: 'networkidle0'}
-    );
-    var content = await thisPage.content();
-    console.log('Content of page is:\n',content);
-    await new Promise(resolve => setTimeout(resolve,pageSECS));
-    await thisBrowser.disconnect();
-    return content;
   } catch (err) {
     console.error('ERROR: Failed to retrieve page:',err);
     throw err;
   }
 };
-exports.getUrl = async (req) => {
+exports.getUrl = async (req,res) => {
   try {
-    var url = req.query.url;
-    if (!url) {
-      return {statusCode: 400, body: 'ERROR: Missing URL parameter'};
+    var thisUrl = req.query.url;
+    if (!thisUrl) {
+      res.status(400).send('ERROR: Missing URL parameter');
+    } else {
+      var content = await loadUrl(thisUrl);
+      res.status(200).send(content);
     }
-    var content = await loadUrl(url);
-    return {statusCode: 200, body: content};
   } catch (err) {
     console.error(err);
-    return {statusCode: 500, body: 'ERROR: Failed to load URL, '+url};
+    res.status(500).send('ERROR: Failed to load URL, '+thisUrl);
+  } finally {
+    // delay between calls (before any returns) while browser remains active
+    await new Promise(resolve => setTimeout(resolve,pageSECS));
+    // but NEVER disconnect because this loses the puppeteer Stealth (plugin) setting!
+    // await thisBrowser.disconnect(); 
   }
 };
 
-exports.stopBrowser = async () => {
+exports.stopBrowser = async (_,res) => {
   try {
     if (thisBrowserWSEp) {
       var thisBrowser = await puppeteer
@@ -135,15 +153,15 @@ exports.stopBrowser = async () => {
           await thisPage.close();
         }
       }
-      if (thisBrowser.isConnected()) {
+      if (thisBrowser && thisBrowser.isConnected()) {
         await thisBrowser.close();
       }
     }
-    console.log('Terminating browser on completion');
-    return {statusCode: 200, body: 'Browser terminated successfully'};
+    console.log('Browser terminated successfully');
+    res.status(200).send('Browser terminated successfully');
   } catch (err) {
-    console.error(err);
-    return {statusCode: 500, body: 'ERROR: Failed to close page and/or terminate browser, '+err};
+    console.error('ERROR: Failed to close page and/or terminate browser:',err);
+    res.status(500).send('ERROR: Failed to close page and/or terminate browser, '+err);
   } finally {  // executed in all cases, even before the returns
     initPromise = undefined;
     thisBrowserWSEp = null;
@@ -151,17 +169,30 @@ exports.stopBrowser = async () => {
   }
 };
 
-exports.browser = async (req) => {
-  var parsedUrl = url.parse(req.url, true);
+/**
+*  This browser function provides a convenient single entry point (as defined in package.json).
+*  Nevertheless, the delegated URL-based functions are equally valid entry and exit points.
+"  Therefore, await is redundant in calling these functions because each effect the return directly.
+*
+*  INFO : The return parameter, 'res' is critical within the (Node.js) delegated functions:
+*    1. .status(200) to return the HTTP statusCode (where 200 = success)
+*    2. .type() to set the Content-Type header
+*          - normally, implcit from content: text/plain (default), text/html or application/json
+*          - alternatively, explicitly also using res.setHeader('Content-Type', type)
+*    3. .send(body) to return the body AND to end the call back to the Google Spreadsheet client
+*          - alternativly, .end may return plain/text or follow (one or more) .write
+*/
+exports.browser = async (req,res) => {
+  var parsedUrl = url.parse(req.url,true);
   var path = parsedUrl.pathname;
   if (path === '/initBrowser') {
-    return exports.initBrowser();
+    exports.initBrowser(req,res);
   } else if (path === '/getUrl') {
-    return exports.getUrl(req);
+    exports.getUrl(req,res);
   } else if (path === '/stopBrowser') {
-    return exports.stopBrowser();
+    exports.stopBrowser(req,res);
   } else {
-    console.log('ERROR: Invalid function path, '+path);
-    return {statusCode: 404, body: 'ERROR: Invalid function path, '+path};
+    console.log('ERROR: Invalid Cloud Run function path,',path);
+    res.status(404).send('ERROR: Invalid Cloud Run function path, '+path);
   } 
 };
