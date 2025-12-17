@@ -59,7 +59,7 @@ let cloudBrowser = async (
     await thisPage.setUserAgent(userAgent);
     await thisPage.goto('about:blank');    // To verify that the browser is ready
     console.log('Blank page loaded');
-    thisPageId = await thisPage.target().targetId;
+    thisPageId = await thisPage.target()._targetId;
     console.log('Retain browser WS Endpoint:',thisBrowserWSEp,'with retained page ID,',thisPageId);
   } catch (err) {
     console.error('ERROR: Getting page ID:', err);
@@ -132,7 +132,7 @@ exports.stopBrowser = async () => {
       if (thisPageId) {
         var thisPage = await thisBrowser.pages()
           .then(pages => pages.find(page => page
-            .target().targetId === thisPageId)
+            .target()._targetId === thisPageId)
           );
         await thisPage.close();
         thisPageId = null;
