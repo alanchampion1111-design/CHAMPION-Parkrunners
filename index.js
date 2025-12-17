@@ -131,24 +131,23 @@ exports.stopBrowser = async () => {
       if (thisPageId) {
         var thisPage = (await thisBrowser.pages())
           .find(page => page.target()._targetId === thisPageId);
-         .find(page => page.target()._targetId === thisPageId));
-        await thisPage.close();
-        thisPageId = null;
+        if (thisPageId && thisPage) {
+          await thisPage.close();
+        }
       }
       if (thisBrowser.isConnected()) {
         await thisBrowser.close();
       }
     }
-    thisBrowserWSEp = null;
     console.log('Terminating browser on completion');
-    initPromise = undefined;
     return {statusCode: 200, body: 'Browser terminated successfully'};
   } catch (err) {
+    console.error(err);
+    return {statusCode: 500, body: 'ERROR: Failed to close page and/or terminate browser, '+err};
+  } finally {  // executed in all cases, even before the returns
     initPromise = undefined;
     thisBrowserWSEp = null;
     thisPageId = null;
-    console.error(err);
-    return {statusCode: 500, body: 'ERROR: Failed to close page and/or terminate browser, '+err};
   }
 };
 
