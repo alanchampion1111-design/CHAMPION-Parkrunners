@@ -149,16 +149,25 @@ exports.stopBrowser = async (_,res) => {
       if (thisPageId) {
         var thisPage = (await thisBrowser.pages())
           .find(page => page.target()._targetId === thisPageId);
-        if (thisPageId && thisPage) {
+        if (thisPage && thisPageId) {
           await thisPage.close();
+          console.log('Page closed successfully - Page Id:',thisPageId);
+        } else {
+          console.warn('WARNING: Page previously closed or timed out - Page Id:',thisPageId');
         }
       }
       if (thisBrowser && thisBrowser.isConnected()) {
         await thisBrowser.close();
+        console.log('Browser terminated successfully - WS endpoint:',thisBrowserWSEp');
+        res.status(200).send('Browser terminated successfully');
+      } else {
+        console.warn(WARNING: Browser previously aborted or timed out - WS endpoint:',thisBrowserWSEp');
+        res.status(204).send('WARNING: Browser previously aborted or timed out');
       }
+    } else {
+      console.warn(WARNING: Browser previously terminated - WS endpoint:',thisBrowserWSEp');
+      res.status(204).send('WARNING: Browser previously terminated');
     }
-    console.log('Browser terminated successfully');
-    res.status(200).send('Browser terminated successfully');
   } catch (err) {
     console.error('ERROR: Failed to close page and/or terminate browser:',err);
     res.status(500).send('ERROR: Failed to close page and/or terminate browser, '+err);
