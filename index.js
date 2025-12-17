@@ -111,7 +111,7 @@ let loadUrl = async (thisUrl) => {
       }
       console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
       console.log('Loading page with URL,',thisUrl);
-      await thisPage.goto(url,{waitUntil: 'networkidle0'});
+      await thisPage.goto(thisUrl,{waitUntil: 'networkidle0'});
       var content = await thisPage.content();
       console.log('Content of page is:\n',content);
       return content;
