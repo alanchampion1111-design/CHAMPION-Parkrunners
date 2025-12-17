@@ -89,9 +89,9 @@ let loadUrl = async (url) => {
     );
     var thisPage = await thisBrowser.pages()
       .then(pages => pages.find(page => page
-        .target().targetId === thisPageId)
+        .target()._targetId === thisPageId)
       );
-    console.log('Reconnected to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
+    console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
     thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
     console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
     await thisPage.setUserAgent(userAgent);
