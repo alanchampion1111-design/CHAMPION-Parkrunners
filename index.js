@@ -81,7 +81,7 @@ exports.initBrowser = async (_,res) => {
         // consider a relaunch with args, --pull from Docker if image is not properly cached!
         res.status(500).send('ERROR: Failed to initialise browser, '+err);
       } finally {
-        / NEVER disconnect because this loses the pupeteer Stealth (plugin) setting!
+        // NEVER disconnect because this loses the pupeteer Stealth (plugin) setting!
         // await thisBrowser.disconnect();
         console.log('Returning immediately after (attempt at) launching browser');
       }
