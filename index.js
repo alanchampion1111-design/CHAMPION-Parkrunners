@@ -19,14 +19,15 @@ const url = require('url');
 let thisBrowserWSEp;  // browser persists on server   
 let thisPageId;       // re-use same page      
 let browserTimeout;   // for browser session
+let browserTimer;
 const launchSECS = 45000;
 const pageSECS = 15000;   // minimum of 10 seconds between page accesses on parkrun site
 let initPromise;      // browser "finished" after initialised (although still active)
 
 let cloudBrowser = async (
-  myTime = 5) =>
+  sessionLimit = 5) =>
 {
-  browserTimeout = myTime*60*1000;
+  browserTimeout = sessionLimit*60*1000;
   var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
     headless: true,
     executablePath: '/usr/bin/google-chrome',
@@ -44,12 +45,17 @@ let cloudBrowser = async (
     // ignoreHTTPSErrors: true
   });
   // Set a timer to close the browser by default after the timeout
-  let browserTimer = setTimeout(async () => {
+  browserTimer = setTimeout(async () => {
     try {
       console.warn('WARNING: Terminating browser due to timeout:',browserTimeout);
       await thisBrowser.close();
     } catch (err) {
       console.error('ERROR: Terminating browser on timeout:',err);
+    } finally {
+      initPromise = undefined;
+      thisBrowserWSEp = null;
+      thisPageId = null;
+      clearTimeout(browserTimer);
     }
   }, browserTimeout);
   thisBrowserWSEp = thisBrowser ? thisBrowser.wsEndpoint() : null;  // return to client (although also global)
@@ -158,7 +164,7 @@ exports.stopBrowser = async (_,res) => {
       }
       if (thisBrowser && thisBrowser.isConnected()) {
         await thisBrowser.close();
-        console.log('Browser terminated successfully - WS endpoint:',thisBrowserWSEp');
+        console.log('Browser terminated successfully - WS endpoint:',thisBrowserWSEp);
         res.status(200).send('Browser terminated successfully');
       } else {
         console.warn(WARNING: Browser previously aborted or timed out - WS endpoint:',thisBrowserWSEp);
@@ -175,6 +181,7 @@ exports.stopBrowser = async (_,res) => {
     initPromise = undefined;
     thisBrowserWSEp = null;
     thisPageId = null;
+    clearTimeout(browserTimer);
   }
 };
 
