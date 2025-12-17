@@ -83,19 +83,19 @@ exports.initBrowser = async () => {
 };
 
 let loadUrl = async (url) => {
+  console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
   try {
-    var thisBrowser = await puppeteer.connect(
-      { browserWSEndpoint: thisBrowserWSEp }
-    );
-    var thisPage = await thisBrowser.pages()
-      .then(pages => pages.find(page => page
-        .target()._targetId === thisPageId)
-      );
-    console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
-    thisPage.setDefaultTimeout(pageSECS);  // Set the timeout for loading the page
+    var thisBrowser = await puppeteer
+      .connect({ browserWSEndpoint: thisBrowserWSEp });
+    var thisPage = (await thisBrowser.pages())
+      .find(page => page.target()._targetId === thisPageId);
+    if (thisPage) {
+      await thisPage.setDefaultTimeout(pageSECS);
+    } else {
+      console.error('ERROR: Persistent page not found:', thisPageId);
+    }
     console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
-    await thisPage.setUserAgent(userAgent);
-    console.log('Loading page with URL,',thisPage.url());
+    console.log('Loading page with URL,',url);
     await thisPage.goto(url,
       {waitUntil: 'networkidle0'}
     );
@@ -126,14 +126,12 @@ exports.getUrl = async (req) => {
 exports.stopBrowser = async () => {
   try {
     if (thisBrowserWSEp) {
-      var thisBrowser = await puppeteer.connect(
-        { browserWSEndpoint: thisBrowserWSEp }
-      );
+      var thisBrowser = await puppeteer
+        .connect({ browserWSEndpoint: thisBrowserWSEp });
       if (thisPageId) {
-        var thisPage = await thisBrowser.pages()
-          .then(pages => pages.find(page => page
-            .target()._targetId === thisPageId)
-          );
+        var thisPage = (await thisBrowser.pages())
+          .find(page => page.target()._targetId === thisPageId);
+         .find(page => page.target()._targetId === thisPageId));
         await thisPage.close();
         thisPageId = null;
       }
