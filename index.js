@@ -167,11 +167,11 @@ exports.stopBrowser = async (_,res) => {
         console.log('Browser terminated successfully - WS endpoint:',thisBrowserWSEp);
         res.status(200).send('Browser terminated successfully');
       } else {
-        console.warn(WARNING: Browser previously aborted or timed out - WS endpoint:',thisBrowserWSEp);
+        console.warn('WARNING: Browser previously aborted or timed out - WS endpoint:',thisBrowserWSEp);
         res.status(204).send('WARNING: Browser previously aborted or timed out');
       }
     } else {
-      console.warn(WARNING: Browser previously terminated - WS endpoint:',thisBrowserWSEp);
+      console.warn('WARNING: Browser previously terminated - WS endpoint:',thisBrowserWSEp);
       res.status(204).send('WARNING: Browser previously terminated');
     }
   } catch (err) {
