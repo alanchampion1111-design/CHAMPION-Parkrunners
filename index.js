@@ -255,7 +255,7 @@ exports.browser = async (req,res) => {
   } else if (path === '/getUrl') {
     exports.getUrl(req,res);
   } else if (path === '/stopBrowser') {
-    exports.stopBrowser(req,res
+    exports.stopBrowser(req,res);
   } else if (path === '/acceptCookies') {
     exports.acceptCookies(req,res);
   } else {
