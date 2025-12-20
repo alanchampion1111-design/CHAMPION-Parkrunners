@@ -218,7 +218,8 @@ exports.acceptCookies = async (_,res) => {
           console.log('Cookie accepted for site, '+thisSite);
         } catch (err) {
           console.log(await thisFrameCookie.content());
-          console.error('ERROR:'Prompt for cookie, '+expectedCookie+' on '+thisSite+' requested, but choice ('+acceptedChoice+') not offered');
+          console.error('ERROR: Prompt for cookie, '+expectedCookie+' on '+thisSite+
+            ' requested, but choice ('+acceptedChoice+') not offered');
           res.status(500).send('ERROR: Failed to offer choice of cookie acceptance: '+err);
         }
       } else {
