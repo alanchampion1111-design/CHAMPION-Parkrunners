@@ -35,8 +35,6 @@ let cloudBrowser = async (
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      // '--ssl-certificates-file=./www.parkrun.org.uk.crt',
-      // '--ssl-certificates-dir=./',
       '--cert=./www.parkrun.org.uk.pem',
       '--verbose',
     ],
@@ -213,14 +211,14 @@ exports.acceptCookies = async (_,res) => {
         .find(f => f.url().includes(expectedCookie));
       if (thisFrameCookie) {
         try {
-          await thisFrameCookie.waitForSelector(acceptedChoice,{timeout: 3000});
-          await thisFrameCookie.click(acceptedChoice,{timeout: 2000});
+          await thisFrameCookie.waitForSelector(acceptedChoice,{timeout: 5000});
+          await thisFrameCookie.click(acceptedChoice,{timeout: 5000});
           console.log('Cookie accepted for site, '+thisSite);
         } catch (err) {
           console.log(await thisFrameCookie.content());
           console.error('ERROR: Prompt for cookie, '+expectedCookie+' on '+thisSite+
             ' requested, but choice ('+acceptedChoice+') not offered');
-          res.status(500).send('ERROR: Failed to offer choice of cookie acceptance: '+err);
+          res.status(500).send('ERROR: Misaligned cookie acceptance option on '+thisSite+':'+err);
         }
       } else {
         console.log('Prompt for cookie, '+expectedCookie+' not requested from site, '+thisSite);
