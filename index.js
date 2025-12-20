@@ -22,7 +22,7 @@ let browserTimeout;   // for browser session
 let browserTimer;
 const launchSECS = 45000;
 const pageSECS = 15000;   // minimum of 10 seconds between page accesses on parkrun site
-let initPromise;      // browser "finished" after initialised (although still active)
+let initPromise;      // browser "finished" after initialised (although still active
 
 let cloudBrowser = async (
   sessionLimit = 5) =>
@@ -87,7 +87,7 @@ exports.initBrowser = async (_,res) => {
         // consider a relaunch with args, --pull from Docker if image is not properly cached!
         res.status(500).send('ERROR: Failed to initialise browser, '+err);
       } finally {
-        // NEVER disconnect because this loses the pupeteer Stealth (plugin) setting!
+        // NEVER disconnect because this loses the puppeteer Stealth (plugin) setting!
         // await thisBrowser.disconnect();
         console.log('Returning immediately after (attempt at) launching browser');
       }
@@ -185,6 +185,54 @@ exports.stopBrowser = async (_,res) => {
   }
 };
 
+cookieJar = [
+  'https://www.parkrun.org.uk',
+  'https://www.parkrun.com'
+];
+expectedCookie = 'parkrun-smart-cookie';
+acceptedChoice = '#smart-surfer-choice-buttons-choice-1';
+
+exports.acceptCookies = async (_,res) => {
+  try {
+    var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
+      headless: true,
+      executablePath: '/usr/bin/google-chrome',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--cert=./www.parkrun.org.uk.pem',
+        '--verbose',
+      ],
+      timeout: launchSECS,       // max launch time
+    });
+    var thisPage = await thisBrowser.newPage();
+    for (let thisSite of cookieJar) {
+      await thisPage.goto(thisSite);
+      var thisFrameCookie = await thisPage.frames()
+        .find(f => f.url().includes(expectedCookie));
+      if (thisFrameCookie) {
+        try {
+          await thisFrameCookie.waitForSelector(acceptedChoice,{timeout: 3000});
+          await thisFrameCookie.click(acceptedChoice,{timeout: 2000});
+          console.log('Cookie accepted for site, '+thisSite);
+        } catch (err) {
+          console.log(await thisFrameCookie.content());
+          console.error('ERROR:'Prompt for cookie, '+expectedCookie+' on '+thisSite+' requested, but choice ('+acceptedChoice+') not offered');
+          res.status(500).send('ERROR: Failed to offer choice of cookie acceptance: '+err);
+        }
+      } else {
+        console.log('Prompt for cookie, '+expectedCookie+' not requested from site, '+thisSite);
+      }
+    }
+    await thisBrowser.close();
+    res.status(200).send('All required cookies in place');
+  } catch (err) {
+    console.error('ERROR: Failed to accept required Cookies:',err);
+    res.status(500).send('ERROR: Failed to accept required Cookies: '+err);
+  }
+};
+
 /**
 *  This browser function provides a convenient single entry point (as defined in package.json).
 *  Nevertheless, the delegated URL-based functions are equally valid entry and exit points.
@@ -206,7 +254,9 @@ exports.browser = async (req,res) => {
   } else if (path === '/getUrl') {
     exports.getUrl(req,res);
   } else if (path === '/stopBrowser') {
-    exports.stopBrowser(req,res);
+    exports.stopBrowser(req,res
+  } else if (path === '/acceptCookies') {
+    exports.acceptCookies(req,res);
   } else {
     console.log('ERROR: Invalid Cloud Run function path,',path);
     res.status(404).send('ERROR: Invalid Cloud Run function path, '+path);
