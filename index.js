@@ -188,7 +188,7 @@ exports.acceptCookies = async (_,res) => {
     'https://www.parkrun.org.uk',
     'https://www.parkrun.com'
   ];
-  const acceptedOption = 'Accept all';
+
   try {
     var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
       headless: true,
@@ -206,15 +206,28 @@ exports.acceptCookies = async (_,res) => {
     try {
       thisCookie = cookieJar[0];
       await thisPage.goto(thisCookie,{waitUntil: 'domcontentloaded',timeout: 10000});
-      const acceptButtonXPath = `//button[text()="${acceptedOption}"]`;
+      const acceptedOption = 'Accept all';
+      const acceptButtonXPath = `button:has-text("${acceptedOption}")`;
       try {
-        await thisPage.waitForXPath(acceptButtonXPath,{timeout: 5000});
+        await thisPage.waitForSelector(acceptButtonXPath,{timeout: 5000});
         await thisPage.click(acceptButtonXPath);
-        console.log('Cookies accepted for sites,',cookieJar);
-        res.status(200).send('Required Cookies accepted for sites, '+cookieJar);
-      } catch (err) {    // assume no Accept dialogue appears
-        console.log('No prompt for Cookies to be accepted on sites, ',cookieJar);
-        res.status(200).send('No prompt for Cookies to be accepted on sites');
+        console.log('Cookies accepted (on first attempt) for sites,',cookieJar);
+        res.status(200).send('Required Cookies (1) accepted for sites, '+cookieJar);
+      } catch (warning) {    // If no Accept button appears, then that is the norm
+        // WARNING retry in case we missed it
+        console.warn ('WARNING:',warning);
+        var buttonExists = await thisPage.evaluate((selector) => {
+          var btn = document.querySelector(selector);
+          return !!btn;
+  	    }, `button:contains("${acceptedOption}")`);
+        if (buttonExists) {
+          await thisPage.click(`button:contains("${acceptedOption}")`);
+          console.log('Cookies accepted (on 2nd attempt) for sites,',cookieJar);
+          res.status(200).send('Required Cookies (2) accepted for sites, '+cookieJar);
+        } else {
+          console.log('No button presented for Cookies to be accepted on sites, ',cookieJar);
+          res.status(200).send('No button presented for Cookies to be accepted on sites, '+cookieJar);
+        }
       }
     } catch (err) {
       console.error('ERROR: Failed to load page,',thisCookie,' to check Cookies:',err);
