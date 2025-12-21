@@ -204,13 +204,13 @@ exports.acceptCookies = async (_,res) => {
     });
     var thisPage = await thisBrowser.newPage();
     await thisPage.goto(cookieJar[0], {waitUntil: 'domcontentloaded'});
+    await thisPage.waitForSelector('#acceptAllBtn');
     try {
       await thisPage.evaluate((thisDoc) => {
         console.log(thisDoc.title); 
         let acceptBtn = thisDoc.getElementById('acceptAllBtn');
         if (acceptBtn && !acceptBtn.disabled) {
           // await thisPage.waitForXPath('//button[text()=acceptedOption]',{timeout: 5000});
-          await thisPage.waitForSelector('#acceptAllBtn');
           thisDoc.getElementById('acceptAllBtn').click();
           // await thisPage.click('//button[text()=acceptedOption]');
           console.log('Cookies accepted for sites, '+cookieJar);
