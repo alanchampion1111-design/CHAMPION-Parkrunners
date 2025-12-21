@@ -203,32 +203,28 @@ exports.acceptCookies = async (_,res) => {
       timeout: launchSECS,       // max launch time
     });
     var thisPage = await thisBrowser.newPage();
-    await thisPage.goto(cookieJar[0], {waitUntil: 'domcontentloaded'});
-    await thisPage.waitForSelector('#acceptAllBtn');
     try {
-      await thisPage.evaluate((thisDoc) => {
-        console.log(thisDoc.title); 
-        let acceptBtn = thisDoc.getElementById('acceptAllBtn');
-        if (acceptBtn && !acceptBtn.disabled) {
-          // await thisPage.waitForXPath('//button[text()=acceptedOption]',{timeout: 5000});
-          thisDoc.getElementById('acceptAllBtn').click();
-          // await thisPage.click('//button[text()=acceptedOption]');
-          console.log('Cookies accepted for sites, '+cookieJar);
-        } else {
-          console.log('No prompt for Cookies to be accepted on sites, '+cookieJar);
-          // console.warn('WARNING: Button for Cookies to be accepted is disabled');
-        }
-      });
-      res.status(200).send('Assume required Cookies in place for sites, '+cookieJar);
+      thisCookie = cookieJar[0];
+      await thisPage.goto(thisCookie,{waitUntil: 'domcontentloaded',timeout: 10000});
+      const acceptButtonXPath = `//button[text()="${acceptedOption}"]`;
+      try {
+        await thisPage.waitForXPath(acceptButtonXPath,{timeout: 5000});
+        await thisPage.click(acceptButtonXPath);
+        console.log('Cookies accepted for sites,',cookieJar);
+        res.status(200).send('Required Cookies accepted for sites, '+cookieJar);
+      } catch (err) {    // assume no Accept dialogue appears
+        console.log('No prompt for Cookies to be accepted on sites, ',cookieJar);
+        res.status(200).send('No prompt for Cookies to be accepted on sites');
+      }
     } catch (err) {
-      console.error('ERROR: Failed to determine whether Cookies accepted or not:',err);
-      res.status(500).send('ERROR: Failed to determine whether Cookies ok or not: '+err);
+      console.error('ERROR: Failed to load page,',thisCookie,' to check Cookies:',err);
+      res.status(500).send('ERROR: Failed to load page ,'+thisCookie+' to check Cookies ok: '+err);
     }
   } catch (err) {
     console.error('ERROR: Failed to launch browser to check Cookies ok:',err);
     res.status(500).send('ERROR: Failed to launch browser to check Cookies ok: '+err);
   } finally {
-    await thisBrowser.close();
+    if (thisBrowser) await thisBrowser.close();
   }
 };
 
