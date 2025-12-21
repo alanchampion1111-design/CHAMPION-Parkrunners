@@ -183,14 +183,12 @@ exports.stopBrowser = async (_,res) => {
   }
 };
 
-cookieJar = [
-  'https://www.parkrun.org.uk',
-  'https://www.parkrun.com'
-];
-expectedCookie = 'parkrun-smart-cookie';
-acceptedChoice = '#smart-surfer-choice-buttons-choice-1';
-
 exports.acceptCookies = async (_,res) => {
+  let cookieJar = [
+    'https://www.parkrun.org.uk',
+    'https://www.parkrun.com'
+  ];
+  const acceptedOption = 'Accept all';
   try {
     var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
       headless: true,
@@ -205,30 +203,32 @@ exports.acceptCookies = async (_,res) => {
       timeout: launchSECS,       // max launch time
     });
     var thisPage = await thisBrowser.newPage();
-    for (let thisSite of cookieJar) {
-      await thisPage.goto(thisSite);
-      var thisFrameCookie = await thisPage.frames()
-        .find(f => f.url().includes(expectedCookie));
-      if (thisFrameCookie) {
-        try {
-          await thisFrameCookie.waitForSelector(acceptedChoice,{timeout: 5000});
-          await thisFrameCookie.click(acceptedChoice,{timeout: 5000});
-          console.log('Cookie accepted for site, '+thisSite);
-        } catch (err) {
-          console.log(await thisFrameCookie.content());
-          console.error('ERROR: Prompt for cookie, '+expectedCookie+' on '+thisSite+
-            ' requested, but choice ('+acceptedChoice+') not offered');
-          res.status(500).send('ERROR: Misaligned cookie acceptance option on '+thisSite+':'+err);
+    await thisPage.goto(cookieJar[0], {waitUntil: 'domcontentloaded'});
+    try {
+      await thisPage.evaluate((thisDoc) => {
+        console.log(thisDoc.title); 
+        let acceptBtn = thisDoc.getElementById('acceptAllBtn');
+        if (acceptBtn && !acceptBtn.disabled) {
+          // await thisPage.waitForXPath('//button[text()=acceptedOption]',{timeout: 5000});
+          await thisPage.waitForSelector('#acceptAllBtn');
+          thisDoc.getElementById('acceptAllBtn').click();
+          // await thisPage.click('//button[text()=acceptedOption]');
+          console.log('Cookies accepted for sites, '+cookieJar);
+        } else {
+          console.log('No prompt for Cookies to be accepted on sites, '+cookieJar);
+          // console.warn('WARNING: Button for Cookies to be accepted is disabled');
         }
-      } else {
-        console.log('Prompt for cookie, '+expectedCookie+' not requested from site, '+thisSite);
-      }
+      });
+      res.status(200).send('Assume required Cookies in place for sites, '+cookieJar);
+    } catch (err) {
+      console.error('ERROR: Failed to determine whether Cookies accepted or not:',err);
+      res.status(500).send('ERROR: Failed to determine whether Cookies ok or not: '+err);
     }
-    await thisBrowser.close();
-    res.status(200).send('All required cookies in place');
   } catch (err) {
-    console.error('ERROR: Failed to accept required Cookies:',err);
-    res.status(500).send('ERROR: Failed to accept required Cookies: '+err);
+    console.error('ERROR: Failed to launch browser to check Cookies ok:',err);
+    res.status(500).send('ERROR: Failed to launch browser to check Cookies ok: '+err);
+  } finally {
+    await thisBrowser.close();
   }
 };
 
