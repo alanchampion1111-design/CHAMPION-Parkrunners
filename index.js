@@ -207,21 +207,21 @@ exports.acceptCookies = async (_,res) => {
       thisCookie = cookieJar[0];
       await thisPage.goto(thisCookie,{waitUntil: 'domcontentloaded',timeout: 10000});
       const acceptedOption = 'Accept all';
-      const acceptButtonXPath = `button:has-text("${acceptedOption}")`;
+      const acceptButtonText = `button:has-text("${acceptedOption}")`;
       try {
-        await thisPage.waitForSelector(acceptButtonXPath,{timeout: 5000});
-        await thisPage.click(acceptButtonXPath);
+        await thisPage.waitForSelector(acceptButtonText,{timeout: 5000});
+        await thisPage.click(acceptButtonText);
         console.log('Cookies accepted (on first attempt) for sites,',cookieJar);
         res.status(200).send('Required Cookies (1) accepted for sites, '+cookieJar);
       } catch (warning) {    // If no Accept button appears, then that is the norm
         // WARNING retry in case we missed it
-        console.warn ('WARNING:',warning);
+        console.warn('WARNING:',warning);
         var buttonExists = await thisPage.evaluate((selector) => {
           var btn = document.querySelector(selector);
           return !!btn;
-  	    }, `button:contains("${acceptedOption}")`);
+  	    }, acceptButtonText);
         if (buttonExists) {
-          await thisPage.click(`button:contains("${acceptedOption}")`);
+          await thisPage.click(acceptButtonText);
           console.log('Cookies accepted (on 2nd attempt) for sites,',cookieJar);
           res.status(200).send('Required Cookies (2) accepted for sites, '+cookieJar);
         } else {
