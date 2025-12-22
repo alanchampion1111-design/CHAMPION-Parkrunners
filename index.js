@@ -207,21 +207,22 @@ exports.acceptCookies = async (_,res) => {
       thisCookie = cookieJar[0];
       await thisPage.goto(thisCookie,{waitUntil: 'domcontentloaded',timeout: 10000});
       const acceptedOption = 'Accept all';
-      const acceptButtonText = `button:has-text("${acceptedOption}")`;
+      const acceptButtonXPath = `//button[contains(text(), "${acceptedOption}")]`;
+      // const acceptButtonText = `button:has-text("${acceptedOption}")`;  fails to find button
       try {
-        await thisPage.waitForSelector(acceptButtonText,{timeout: 5000});
-        await thisPage.click(acceptButtonText);
-        console.log('Cookies accepted (on first attempt) for sites,',cookieJar);
+        await thisPage.waitForXPath(acceptButtonXPath,{timeout: 10000});
+        await thisPage.click(acceptButtonXPath);
+        console.log('Cookies accepted (on 1st attempt) for sites,',cookieJar);
         res.status(200).send('Required Cookies (1) accepted for sites, '+cookieJar);
       } catch (warning) {    // If no Accept button appears, then that is the norm
-        // WARNING retry in case we missed it
-        console.warn('WARNING:',warning);
-        var buttonExists = await thisPage.evaluate((selector) => {
-          var btn = document.querySelector(selector);
-          return !!btn;
-  	    }, acceptButtonText);
+        // WARNING retry in case we missed it on the 1st attempt
+        console.warn('WARNING:',warning);    // check logs why 1st attempt failed
+        var buttonExists = await thisPage.evaluate((xpath) => {
+          var result = document.evaluate(xpath, doc, null, XPathResult.BOOLEAN_TYPE, null);
+          return result.booleanValue;
+        }, acceptButtonXPath);
         if (buttonExists) {
-          await thisPage.click(acceptButtonText);
+          await thisPage.click(acceptButtonXPath);
           console.log('Cookies accepted (on 2nd attempt) for sites,',cookieJar);
           res.status(200).send('Required Cookies (2) accepted for sites, '+cookieJar);
         } else {
@@ -231,7 +232,7 @@ exports.acceptCookies = async (_,res) => {
       }
     } catch (err) {
       console.error('ERROR: Failed to load page,',thisCookie,' to check Cookies:',err);
-      res.status(500).send('ERROR: Failed to load page ,'+thisCookie+' to check Cookies ok: '+err);
+      res.status(500).send('ERROR: Failed to load page, '+thisCookie+' to check Cookies ok: '+err);
     }
   } catch (err) {
     console.error('ERROR: Failed to launch browser to check Cookies ok:',err);
