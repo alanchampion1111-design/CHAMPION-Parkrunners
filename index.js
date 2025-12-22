@@ -223,6 +223,7 @@ exports.acceptCookies = async (_,res) => {
       } catch (warning) {    // If no Accept button appears, then that is the norm
         // WARNING retry in case we missed it on the 1st attempt
         console.warn('WARNING:',warning);    // check logs why 1st attempt failed
+        console.log(await thisPage.content()); // TEMPORARY!!
         var buttonExists = await thisPage.evaluate(evaluateXPath,acceptButtonXPath);
         if (buttonExists) {
           await thisPage.click(acceptButtonXPath);
@@ -230,7 +231,6 @@ exports.acceptCookies = async (_,res) => {
           res.status(200).send('Required Cookies (2) accepted for sites, '+cookieJar);
         } else {
           console.log('No button presented for Cookies to be accepted on sites, ',cookieJar);
-          console.log(await thisPage.content()); // TEMPORARY!!
           res.status(200).send('No button presented for Cookies to be accepted on sites, '+cookieJar);
         }
       }
