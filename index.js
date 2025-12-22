@@ -185,15 +185,22 @@ exports.stopBrowser = async (_,res) => {
   }
 }
 
+function deleteCookies(page) {
+  try {
+    if (cookies.find(c => c.name === 'psc')) {
+      await page.deleteCookie({name: 'psc'});
+      await page.reload();
+    }
+  } catch (err) {
+    console.log('Cookie not found:',err);
+  }
+}
+
 exports.acceptCookies = async (_,res) => {
   let cookieJar = [
     'https://www.parkrun.org.uk',
     'https://www.parkrun.com'
   ];
-  function evaluateXPath(xpath) {
-    var doc = document;
-    return doc.evaluate(xpath,doc,null,doc.XPathResult.BOOLEAN_TYPE, null).booleanValue;
-  }
   
   try {
     var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
@@ -210,29 +217,20 @@ exports.acceptCookies = async (_,res) => {
     });
     var thisPage = await thisBrowser.newPage();
     try {
-      thisCookie = cookieJar[0];
+      thisCookie = cookieJar[0];    // assume org.uk Cookie will suffice
       await thisPage.goto(thisCookie,{waitUntil: 'domcontentloaded',timeout: 10000});
-      const acceptedOption = 'Accept all';
-      const acceptButtonXPath = `//button[contains(text(), "${acceptedOption}")]`;
-      // const acceptButtonText = `button:has-text("${acceptedOption}")`;  fails to find button
+      const acceptButton = `button.cm__btn[data-role="all"]`;
       try {
-        await thisPage.waitForXPath(acceptButtonXPath,{timeout: 10000});
-        await thisPage.click(acceptButtonXPath);
-        console.log('Cookies accepted (on 1st attempt) for sites,',cookieJar);
+        thisPage.waitForSelector(acceptButton, {timeout: 10000});
+        await thisPage.click(acceptButton);
+        console.log('Cookies accepted for sites,',cookieJar);
         res.status(200).send('Required Cookies (1) accepted for sites, '+cookieJar);
       } catch (warning) {    // If no Accept button appears, then that is the norm
-        // WARNING retry in case we missed it on the 1st attempt
-        console.warn('WARNING:',warning);    // check logs why 1st attempt failed
-        console.log(await thisPage.content()); // TEMPORARY!!
-        var buttonExists = await thisPage.evaluate(evaluateXPath,acceptButtonXPath);
-        if (buttonExists) {
-          await thisPage.click(acceptButtonXPath);
-          console.log('Cookies accepted (on 2nd attempt) for sites,',cookieJar);
-          res.status(200).send('Required Cookies (2) accepted for sites, '+cookieJar);
-        } else {
-          console.log('No button presented for Cookies to be accepted on sites, ',cookieJar);
-          res.status(200).send('No button presented for Cookies to be accepted on sites, '+cookieJar);
-        }
+        // WARNING Perhaps retry in case page not fully evaluated or delete and redo
+        // TODO: deleteCookies(thisPage);
+        console.warn('WARNING:',warning);    // check logs in case failed for button not detected
+        console.log('No button presented for Cookies to be accepted on sites, ',cookieJar);
+        res.status(200).send('No button presented for Cookies to be accepted on sites, '+cookieJar);
       }
     } catch (err) {
       console.error('ERROR: Failed to load page,',thisCookie,' to check Cookies:',err);
