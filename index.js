@@ -74,6 +74,7 @@ let cloudBrowser = async (
     console.error('ERROR: Getting page ID:', err);
   }
 }
+
 exports.initBrowser = async (_,res) => {
   if (!initPromise) {
     initPromise = (async () => {
@@ -93,7 +94,7 @@ exports.initBrowser = async (_,res) => {
   } else {  // do nothing because browser previously launched
     res.status(200).send(thisBrowserWSEp);
   }
-};
+}
 
 let loadUrl = async (thisUrl) => {
   console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
@@ -124,7 +125,8 @@ let loadUrl = async (thisUrl) => {
     console.error('ERROR: Failed to retrieve page:',err);
     throw err;
   }
-};
+}
+
 exports.getUrl = async (req,res) => {
   try {
     var thisUrl = req.query.url;
@@ -143,7 +145,7 @@ exports.getUrl = async (req,res) => {
     // but NEVER disconnect because this loses the puppeteer Stealth (plugin) setting!
     // await thisBrowser.disconnect(); 
   }
-};
+}
 
 exports.stopBrowser = async (_,res) => {
   try {
@@ -181,14 +183,18 @@ exports.stopBrowser = async (_,res) => {
     thisPageId = null;
     clearTimeout(browserTimer);
   }
-};
+}
 
 exports.acceptCookies = async (_,res) => {
   let cookieJar = [
     'https://www.parkrun.org.uk',
     'https://www.parkrun.com'
   ];
-
+  function evaluateXPath(xpath) {
+    var doc = document;
+    return doc.evaluate(xpath,doc,null,doc.XPathResult.BOOLEAN_TYPE, null).booleanValue;
+  }
+  
   try {
     var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
       headless: true,
@@ -217,16 +223,14 @@ exports.acceptCookies = async (_,res) => {
       } catch (warning) {    // If no Accept button appears, then that is the norm
         // WARNING retry in case we missed it on the 1st attempt
         console.warn('WARNING:',warning);    // check logs why 1st attempt failed
-        var buttonExists = await thisPage.evaluate((xpath) => {
-          var result = document.evaluate(xpath, doc, null, XPathResult.BOOLEAN_TYPE, null);
-          return result.booleanValue;
-        }, acceptButtonXPath);
+        var buttonExists = await thisPage.evaluate(evaluateXPath,acceptButtonXPath);
         if (buttonExists) {
           await thisPage.click(acceptButtonXPath);
           console.log('Cookies accepted (on 2nd attempt) for sites,',cookieJar);
           res.status(200).send('Required Cookies (2) accepted for sites, '+cookieJar);
         } else {
           console.log('No button presented for Cookies to be accepted on sites, ',cookieJar);
+          console.log(await thisPage.content()); // TEMPORARY!!
           res.status(200).send('No button presented for Cookies to be accepted on sites, '+cookieJar);
         }
       }
@@ -240,7 +244,7 @@ exports.acceptCookies = async (_,res) => {
   } finally {
     if (thisBrowser) await thisBrowser.close();
   }
-};
+}
 
 /**
 *  This browser function provides a convenient single entry point (as defined in package.json).
@@ -270,4 +274,4 @@ exports.browser = async (req,res) => {
     console.log('ERROR: Invalid Cloud Run function path,',path);
     res.status(404).send('ERROR: Invalid Cloud Run function path, '+path);
   } 
-};
+}
