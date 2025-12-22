@@ -185,9 +185,9 @@ exports.stopBrowser = async (_,res) => {
   }
 }
 
-function deleteCookies(page) {
+async function deleteCookies(page) {
   try {
-    if (cookies.find(c => c.name === 'psc')) {
+    if (await cookies.find(c => c.name === 'psc')) {
       await page.deleteCookie({name: 'psc'});
       await page.reload();
     }
