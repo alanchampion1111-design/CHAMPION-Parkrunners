@@ -17,6 +17,7 @@ puppeteer.use(StealthPlugin());
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 const url = require('url');
 let thisBrowserWSEp;  // browser persists on server   
+
 let thisPageId;       // re-use same page      
 let browserTimeout;   // for browser session
 let browserTimer;
@@ -185,14 +186,15 @@ exports.stopBrowser = async (_,res) => {
   }
 }
 
-async function deleteCookies(page) {
+async function deleteCookies(page,targetUrl) {
   try {
+    let cookies = await page.cookies();
     if (await cookies.find(c => c.name === 'psc')) {
-      await page.deleteCookie({name: 'psc'});
+      await page.deleteCookie({name:'psc',url:targetUrl});
       await page.reload();
     }
   } catch (err) {
-    console.log('Cookie not found:',err);
+    console.log('Cookie for url,',targetUrl,'to be deleted was not found:',err);
   }
 }
 
@@ -203,7 +205,7 @@ exports.acceptCookies = async (_,res) => {
   ];
   
   try {
-    var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
+    let thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
       headless: true,
       executablePath: '/usr/bin/google-chrome',
       args: [
@@ -215,26 +217,31 @@ exports.acceptCookies = async (_,res) => {
       ],
       timeout: launchSECS,       // max launch time
     });
-    var thisPage = await thisBrowser.newPage();
+    let thisPage = await thisBrowser.newPage();
     try {
-      thisCookie = cookieJar[0];    // assume org.uk Cookie will suffice
-      await thisPage.goto(thisCookie,{waitUntil: 'domcontentloaded',timeout: 10000});
+      thisCookieURL = cookieJar[0];    // assume org.uk Cookie will suffice
+      await thisPage.goto(thisCookieURL,{waitUntil: 'domcontentloaded',timeout: 10000});
       const acceptButton = `button.cm__btn[data-role="all"]`;
       try {
         thisPage.waitForSelector(acceptButton, {timeout: 10000});
+        await thisPage.setCookie({
+          name: 'psc',
+          value: 'some-value',
+          domain: 'www.parkrun.org.uk'
+        });
         await thisPage.click(acceptButton);
         console.log('Cookies accepted for sites,',cookieJar);
-        res.status(200).send('Required Cookies (1) accepted for sites, '+cookieJar);
+        res.status(200).send('Required Cookies accepted for sites, '+cookieJar);
       } catch (warning) {    // If no Accept button appears, then that is the norm
         // WARNING Perhaps retry in case page not fully evaluated or delete and redo
-        // TODO: deleteCookies(thisPage);
+        // TODO: deleteCookies(thisPage,thisCookieURL);
         console.warn('WARNING:',warning);    // check logs in case failed for button not detected
         console.log('No button presented for Cookies to be accepted on sites, ',cookieJar);
         res.status(200).send('No button presented for Cookies to be accepted on sites, '+cookieJar);
       }
     } catch (err) {
-      console.error('ERROR: Failed to load page,',thisCookie,' to check Cookies:',err);
-      res.status(500).send('ERROR: Failed to load page, '+thisCookie+' to check Cookies ok: '+err);
+      console.error('ERROR: Failed to load page,',thisCookieURL,' to check Cookies:',err);
+      res.status(500).send('ERROR: Failed to load page, '+thisCookieURL+' to check Cookies ok: '+err);
     }
   } catch (err) {
     console.error('ERROR: Failed to launch browser to check Cookies ok:',err);
