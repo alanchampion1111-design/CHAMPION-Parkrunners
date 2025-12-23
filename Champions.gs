@@ -525,10 +525,16 @@ async function AccessPage(
 ) {
   const getBrowserURL = browserURL+'/getUrl?url='+thisUrl;
   try {
-    var response = await UrlFetchApp.fetch(getBrowserURL);
+    var response = await UrlFetchApp.fetch(getBrowserURL,
+      // Runners with 500+ results take longer 
+      //    AND parallelism may be curtailed
+      //      WHEN re-using the same page is detected,
+      //      AND/OR WHEN a single CPU is specified for the run
+      // Therefore, allow worst case timing for all, as if serial
+      {muteHttpExceptions:true,timeout:30000});
     return response.getContentText();
   } catch (err) {
-    Logger.log(err);
+    Logger.log(err,'within',thisUrl);
     return null;
   }
 }
@@ -619,7 +625,7 @@ function CopyLatestResultForRunner(
     }
   })
   .catch (error => {
-    Logger.log('ERROR: Failed to get results for Parkrunner Id, '+parkrunnerId+'...\n'+error);
+    Logger.log('ERROR: Failed to get results for runner Id, '+parkrunnerId+'...\n'+error);
     return null;
   });
 }
@@ -655,24 +661,38 @@ function PasteLatestResultForRunner(
       case /^\d+$/.test(cell):              // Posn (potentially other numbers)
         return parseInt(value,10);
       case cell.includes('&nbsp'):
-        value = cell.replace(/&nbsp;/g,'')  // for PB?, ALSO needs trim
+        value = cell.replace(/&nbsp;/g,''); // for PB?, ALSO needs trim
       default:
         return value.trim();
     }
   }
 
-  Logger.log('Consider pasting latest result at bottom of runner sheet for '+runnerName);
+  function FormatDate(dateSource,dateFormat) {
+    return Utilities.formatDate(  // ensure ISO dates beforehand
+      new Date(dateSource.replace(/(\d+)\/(\d+)\/(\d+)/,'$3-$2-$1')),
+      Session.getScriptTimeZone(),
+      dateFormat  // more readable & universal, PLUS consistent with current formatting on sheet
+    );
+  }
+
+  Logger.log('Consider pasting latest result into runner sheet for '+runnerName+'...');
   const locationINDEX = 0;  // column A
   const dateINDEX = 1;      // column B
+  const previousROWS = 15;  // previous results may include non-parkrunner events
+  const dateFORMAT = 'd-MMM-yy';
+  latestResult = latestResult.map(cleanValue);   // includes 00: (for hh:) prefix on elapsed time
+  var thisDate = latestResult[dateINDEX] = FormatDate(latestResult[dateINDEX],dateFORMAT);
+  var thisLocation = latestResult[locationINDEX];
   var resultsSheet = SpreadsheetApp.getActiveSpreadsheet()
     .getSheetByName(runnerName);
-  // TODO: ignore title and header rows on any runner's sheet
-  var previousResults = resultsSheet.getDataRange().getValues();
-  latestResult = latestResult.map(cleanValue);   // includes hh: prefix on elapsed time
-  var thisDate = latestResult[dateINDEX]
-    = Utilities.formatDate(new Date(latestResult[dateINDEX]),
-      Session.getScriptTimeZone(),'dd-MMM-yy');
-  var thisLocation = latestResult[locationINDEX];
+  // Consider matching only with recent previous results (after ignoring title & header rows)
+  // This takes account of some runners who run elsewhere (and captured manually) since their last recorded parkrun
+  var previousResults = resultsSheet.getDataRange().getDisplayValues().slice(2).slice(-previousROWS);
+  if (previousResults.length < 1) {
+    Logger.warn('WARNING: The template for new runner, '+runnerName+' is expected to include a (phantom?) formatted result');
+    Logger.error('ERROR: No previous result for runner, '+runnerName+' (with map formulae?) to be able to match new result');
+    return null;
+  }
   var matchingResults = previousResults.map(function(row) {
     return row[locationINDEX]+'&'+row[dateINDEX];
   });
@@ -681,15 +701,26 @@ function PasteLatestResultForRunner(
     Logger.log('Previously pasted result at '+thisLocation+' on '+thisDate+' for runner, '+runnerName);
     return null;    // null range if not a new result
   } else {
-    latestResult = latestResult.map((row, i) => {
-      [0,1,2].forEach(j => row[j] = {
-        value: row[j], hyperlink: hyperLinks.shift()
+    try {
+      latestResult = latestResult.map((cell,i) => {
+        // Perhaps assume only columns A..C had hyperlinks (captured during Copy)
+        // if ([0,1,2].includes(i)) {
+        if (hyperLinks.length) {
+          return SpreadsheetApp.newRichTextValue()
+            .setText(cell)
+            .setLinkUrl(hyperLinks.shift())   // reduces length of array
+            .build();
+        } else {
+          return SpreadsheetApp.newRichTextValue()
+            .setText(cell)
+            .build();
+        }
       });
-      return row;
-    });
+    } catch (error) {
+      Logger.warn('WARNING: Unable to add hyperlinks correctly to latest result for runner, '+runnerName+'...\n'+error.message);
+    }
     var pastedResult = resultsSheet.getRange(insertRow,1,1,latestResult.length)
-      .setValues([latestResult]); // append single result row only (at column A)
-    pastedResult.activate();        // ..in readiness for cleaning format etc.
+      .setRichTextValues([latestResult]); // append single result row only (at column A)
     Logger.log('Newly pasted result at '+thisLocation+' on '+thisDate+' for runner, '+runnerName);
     return pastedResult;
   }
@@ -699,11 +730,13 @@ function PasteLatestResultForRunner(
  * Imports the latest results for each of our runners from parkrun.org.uk.
  */
 function ImportLatestResultForEachRunner() {
-  OpenChromeBrowser().then(() => {   // Browser launch completed beforehand...
+  OpenChromeBrowser().then(() => {   // Browser must have launched beforehand...
     var runnerNames = allRunnersSHEET.getRange(
       "A"+runnersStartROW+":A"
     ).getValues().filter(String);
-    runnerNames.forEach(function(runnerName,index) {
+    // Process each runner in parallel BEFORE closing after ALL runners done!
+    Promise.all(runnerNames.map(function(runnerName,index) {
+    // runnerNames.forEach(function(runnerName,index) {   // risky since all in parallel
       var parkrunnerId = allRunnersSHEET.getRange(
         runnersStartROW+index,parkrunnerIdCOLUMN).getValue();
       Logger.log('Parkrunner ID: '+parkrunnerId);
@@ -716,7 +749,6 @@ function ImportLatestResultForEachRunner() {
           var pastedRange = PasteLatestResultForRunner(latestResult,runnerName);
           if (pastedRange) {
             Logger.log('Latest result already clean when pasted in runner sheet, '+runnerName);
-            // CleanFormatforPastedRunResults(pastedRange);
           } else {
             Logger.log('No later result for runner, '+runnerName);
           }
@@ -724,9 +756,10 @@ function ImportLatestResultForEachRunner() {
           Logger.log('WARNING: No results found for runner, '+runnerName);
         }
       });
+    })).then(() => {
+      CloseChromeBrowser().then(() => {}); // Ensure all logs complete for each runner
     });
   });
-  CloseChromeBrowser();   // No .then because this is the final statement!
 }
 
 /* ---------------------------------------------------------------------------
