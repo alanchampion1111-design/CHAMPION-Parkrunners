@@ -98,7 +98,7 @@ exports.initBrowser = async (_,res) => {
 }
 
 let loadUrl = async (thisUrl, pageOnly=false) => {
-  console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
+  // console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
   try {
     if (!thisBrowserWSEp) {
       console.error('ERROR: Persistent browser not found:',thisBrowserWSEp,'with timeout', browserTimeout);
@@ -131,15 +131,12 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
   }
 }
 
-exports.getUrl = async (req,res) => {
+exports.getUrl = async (req,res) => 
+  // Default in case no ? parameters passed - sample runner is Alan
+  let thisUrl = req.query?.url || 'https://www.parkrun.org.uk/parkrunner/777764/all/';
   try {
-    var thisUrl = req.query.url;
-    if (!thisUrl) {
-      res.status(400).send('ERROR: Missing URL parameter');
-    } else {
-      var content = await loadUrl(thisUrl);
-      res.status(200).send(content);
-    }
+    var content = await loadUrl(thisUrl);
+    res.status(200).send(content);
   } catch (err) {
     console.error(err);
     res.status(500).send('ERROR: Failed to load URL, '+thisUrl);
@@ -152,11 +149,12 @@ exports.getUrl = async (req,res) => {
 }
 
 exports.filterUrl = async (req, res) => {
-  let thisUrl = req.query.url || 'https://www.parkrun.org.uk/havant/results/638/';
-  let rn = req.query.rn || 'Dave BUSH';
-  let ac = req.query.ac || 'VM55-59';    // Age-Category filter
-  let ag = req.query.ag || 'Age-Grade';  // Age-Grade sort
-  var thisPage = await loadUrl(thisUrl.true);
+  // Default in case no ? and & parameters passed
+  let thisUrl = req.query?.url || 'https://www.parkrun.org.uk/havant/results/638/'; // Sample parkrun event
+  let rn = req.query?.rn || 'Dave BUSH';    // Sample runner at Havant parkrun #638
+  let ac = req.query?.ac || 'VM55-59';      // Age-Category filter for matching Dave (expect 2)
+  let ag = req.query?.ag || 'Age-Grade';    // Age-Grade sort for matching Dave (expect 9)
+  var thisPage = await loadUrl(thisUrl,true);
   try {
     var positions = await thisPage.evaluate((rn, ac, ag) => {
       // Filter by Age-Category to get ac position 
