@@ -119,7 +119,7 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
       console.log('Loading page with URL,',thisUrl);
       await thisPage.goto(thisUrl,{waitUntil: 'networkidle0'});
       if (pageOnly) return thisPage;
-      } else {
+      else {
         var content = await thisPage.content();
         console.log('Content of page is:\n',content);
         return content;
@@ -176,7 +176,6 @@ exports.filterUrl = async (req, res) => {
           }
         }
         throw new Error('Failed to find position filtered by Age-Category, '+ac+' for runner, '+rn);
-        return null;
       })();
       // ...and then remove the ac filter to avoid interfering with Age-Grade order
       document.querySelector('#search').value = '';
@@ -204,15 +203,14 @@ exports.filterUrl = async (req, res) => {
           }
         }
         throw new Error('Failed to find sorted '+ag+' position for runner, '+rn+' in results, '+thisUrl);
-        return null;
       })();
       return [acPosition,agPosition];
-    }, rn, ac, ag);
+    }, rn,ac,ag);
     // await thisPage.close();  // re-use page may fail??, consider new Page for each parkrun results instance!!
     res.status(200).send(positions.toString());
   } catch (err) {
-    console.error('ERROR in filterUrl:', err);
-    res.status(500).send('ERROR: ' + err.message);
+    console.error('ERROR:',err);
+    res.status(500).send('ERROR: '+err.message);
   }
 }
 
