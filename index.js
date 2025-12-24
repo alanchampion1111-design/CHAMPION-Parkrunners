@@ -156,43 +156,17 @@ exports.filterUrl = async (req, res) => {
   let ag = req.query?.ag || 'Age-Grade';    // Age-Grade sort for matching Dave (expect 9)
   var thisPage = await loadUrl(thisUrl,true);
   try {
-    var positions = await thisPage.evaluate((rn, ac, ag) => {
-      // Filter by Age-Category to get ac position 
-      let acPosition = (() => {
-        var searchInput = document.querySelector('#search');
-        searchInput.value = ac;
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-        var rows = document.querySelectorAll('tr.results-row');
-        if (!rows) {
-          throw new Error('Failed to filter on Age-Category, '+ac);
-          // res.status(500).send('ERROR: Failed to filter on Age-Category, '+ac);
-        }
-        for (let i = 0; i < rows.length; i++) {
-          const nameCell = rows[i].querySelector('td:nth-child(2)');
-          if (nameCell && nameCell.textContent.trim() === rn) {
-            return i + 1;
-          }
-        }
-        throw new Error('Failed to find position filtered by Age-Category, '+ac+' for runner, '+rn);
-      })();
-      // ...and then remove the ac filter to avoid interfering with Age-Grade order
-      document.querySelector('#search').value = '';
-      document.querySelector('#search')
-        .dispatchEvent(new Event('input', { bubbles: true }));
+    var positions = await thisPage.evaluate((rn, ac, ag) => {  // returns two positions
       // Sort by (descending) Age-Grade, to get ag desc position
       let agPosition = (() => {
-        document.querySelector('.hamburger').click();
-        var sortLinks = document.querySelectorAll('#sorts li a');
-        var agLink = Array.from(sortLinks)
-          .find(link => link.textContent.trim() === ag);
-        if (!agLink) {
-          throw new Error('Unable to select descender button for Age-Grade, '+ag);
-          // res.status(500).send('ERROR: Unable to select descender button for Age-Grade, '+ag);
-        } else agLink.click();
+        let sortSelect = document.querySelector('select.js-ResultsSelect');
+        sortSelect.value = 'agegrade-desc';
+        sortSelect.dispatchEvent(new Event('change',{bubbles: true }));
+        await thisPage.waitForTimeout(100); // virtually instant to re-sort same # of rows
+        ensure awaiting the correct elements and appropriate delay after sort/filter
         var rows = document.querySelectorAll('tr.results-row');
         if (!rows) {
           throw new Error('Failed to sort by Age-Grade, '+ag);
-          // res.status(500).send('ERROR: Failed to sort by Age-Grade, '+ag);
         }
         for (let i = 0; i < rows.length; i++) {
           const nameCell = rows[i].querySelector('td:nth-child(2)');
@@ -202,13 +176,43 @@ exports.filterUrl = async (req, res) => {
         }
         throw new Error('Failed to find sorted '+ag+' position for runner, '+rn+' in results, '+thisUrl);
       })();
-      return [acPosition,agPosition];
-    }, rn,ac,ag);
-    // await thisPage.close();  // re-use page may fail??, consider new Page for each parkrun results instance!!
-    res.status(200).send(positions.toString());
+      // ...and then reset the ag to revert to Sort by Position for the Age-Category filter
+      sortSelect.value = 'position-desc';
+      sortSelect.dispatchEvent(new Event('change',{bubbles: true }));
+      await thisPage.waitForTimeout(100); // virtually instant to re-sort the # of rows
+      const searchSelector = 'input[name="search"]';
+      await thisPage.waitForSelector(searchSelector);
+      // Filter by Age-Category to get ac position 
+      let acPosition = (() => {
+        let searchInput = document.querySelector(searchSelector);
+        searchInput.value = ac;
+        searchInput.dispatchEvent(new Event('input',{bubbles: true}));
+        await thisPage.waitForTimeout(500); // half a second for filter to reduce the # of rows?
+        var rows = document.querySelectorAll('tr.results-row');
+        if (!rows) {
+          throw new Error('Failed to filter on Age-Category, '+ac);
+        }
+        for (let i = 0; i < rows.length; i++) {
+          const nameCell = rows[i].querySelector('td:nth-child(2)');
+          if (nameCell && nameCell.textContent.trim() === rn) {
+            return i + 1;
+          }
+        }
+        throw new Error('Failed to find position filtered by Age-Category, '+ac+' for runner, '+rn);
+      })();
+      // Consider removing the ac filter if another order is required (e.g. Gender position)
+      // searchInput.value = '';  // remove filter, perhaps Gender also next?
+      // searchInput.dispatchEvent(new Event('input',{bubbles: true}));
+      // await thisPage.waitForTimeout(500); // half a second for unfilter to increase the # of rows?
+      return [acPosition,agPosition];    // return all positions required
+    }, searchSelector,rn,ac,ag);    // ensure constants and variables are in scope of the page evaluate
+    res.status(200).send(positions.toString());    // require parsing after
   } catch (err) {
     console.error('ERROR:',err);
     res.status(500).send('ERROR: '+err.message);
+  } finally {
+    // await thisPage.close();  // re-use page may fail??, consider new Page for each parkrun results instance
+    console.warn('WARNING: If re-using the same page, the normal parallel performance may be slower (or otherwise interfere)
   }
 }
 
