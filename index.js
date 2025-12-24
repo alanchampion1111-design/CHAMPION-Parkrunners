@@ -97,7 +97,7 @@ exports.initBrowser = async (_,res) => {
   }
 }
 
-let loadUrl = async (thisUrl) => {
+let loadUrl = async (thisUrl, pageOnly=false) => {
   console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
   try {
     if (!thisBrowserWSEp) {
@@ -118,9 +118,12 @@ let loadUrl = async (thisUrl) => {
       console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
       console.log('Loading page with URL,',thisUrl);
       await thisPage.goto(thisUrl,{waitUntil: 'networkidle0'});
-      var content = await thisPage.content();
-      console.log('Content of page is:\n',content);
-      return content;
+      if (pageOnly) return thisPage;
+      } else {
+        var content = await thisPage.content();
+        console.log('Content of page is:\n',content);
+        return content;
+      }
     }
   } catch (err) {
     console.error('ERROR: Failed to retrieve page:',err);
@@ -145,6 +148,71 @@ exports.getUrl = async (req,res) => {
     await new Promise(resolve => setTimeout(resolve,pageSECS));
     // but NEVER disconnect because this loses the puppeteer Stealth (plugin) setting!
     // await thisBrowser.disconnect(); 
+  }
+}
+
+exports.filterUrl = async (req, res) => {
+  let thisUrl = req.query.url || 'https://www.parkrun.org.uk/havant/results/638/';
+  let rn = req.query.rn || 'Dave BUSH';
+  let ac = req.query.ac || 'VM55-59';    // Age-Category filter
+  let ag = req.query.ag || 'Age-Grade';  // Age-Grade sort
+  var thisPage = await loadUrl(thisUrl.true);
+  try {
+    var positions = await thisPage.evaluate((rn, ac, ag) => {
+      // Filter by Age-Category to get ac position 
+      let acPosition = (() => {
+        var searchInput = document.querySelector('#search');
+        searchInput.value = ac;
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        var rows = document.querySelectorAll('tr.results-row');
+        if (!rows) {
+          throw new Error('Failed to filter on Age-Category, '+ac);
+          // res.status(500).send('ERROR: Failed to filter on Age-Category, '+ac);
+        }
+        for (let i = 0; i < rows.length; i++) {
+          const nameCell = rows[i].querySelector('td:nth-child(2)');
+          if (nameCell && nameCell.textContent.trim() === rn) {
+            return i + 1;
+          }
+        }
+        throw new Error('Failed to find position filtered by Age-Category, '+ac+' for runner, '+rn);
+        return null;
+      })();
+      // ...and then remove the ac filter to avoid interfering with Age-Grade order
+      document.querySelector('#search').value = '';
+      document.querySelector('#search')
+        .dispatchEvent(new Event('input', { bubbles: true }));
+      // Sort by (descending) Age-Grade, to get ag desc position
+      let agPosition = (() => {
+        document.querySelector('.hamburger').click();
+        var sortLinks = document.querySelectorAll('#sorts li a');
+        var agLink = Array.from(sortLinks)
+          .find(link => link.textContent.trim() === ag);
+        if (!agLink) {
+          throw new Error('Unable to select descender button for Age-Grade, '+ag);
+          // res.status(500).send('ERROR: Unable to select descender button for Age-Grade, '+ag);
+        } else agLink.click();
+        var rows = document.querySelectorAll('tr.results-row');
+        if (!rows) {
+          throw new Error('Failed to sort by Age-Grade, '+ag);
+          // res.status(500).send('ERROR: Failed to sort by Age-Grade, '+ag);
+        }
+        for (let i = 0; i < rows.length; i++) {
+          const nameCell = rows[i].querySelector('td:nth-child(2)');
+          if (nameCell && nameCell.textContent.trim() === rn) {
+            return i+1;
+          }
+        }
+        throw new Error('Failed to find sorted '+ag+' position for runner, '+rn+' in results, '+thisUrl);
+        return null;
+      })();
+      return [acPosition,agPosition];
+    }, rn, ac, ag);
+    // await thisPage.close();  // re-use page may fail??, consider new Page for each parkrun results instance!!
+    res.status(200).send(positions.toString());
+  } catch (err) {
+    console.error('ERROR in filterUrl:', err);
+    res.status(500).send('ERROR: ' + err.message);
   }
 }
 
@@ -271,6 +339,8 @@ exports.browser = async (req,res) => {
     exports.initBrowser(req,res);
   } else if (path === '/getUrl') {
     exports.getUrl(req,res);
+  } else if (path === '/filterUrl') {
+    exports.filterUrl(req,res);
   } else if (path === '/stopBrowser') {
     exports.stopBrowser(req,res);
   } else if (path === '/acceptCookies') {
