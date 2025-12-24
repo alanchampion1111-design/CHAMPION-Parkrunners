@@ -131,7 +131,7 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
   }
 }
 
-exports.getUrl = async (req,res) => 
+exports.getUrl = async (req,res) => {
   // Default in case no ? parameters passed - sample runner is Alan
   let thisUrl = req.query?.url || 'https://www.parkrun.org.uk/parkrunner/777764/all/';
   try {
