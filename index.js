@@ -148,6 +148,83 @@ exports.getUrl = async (req,res) => {
   }
 }
 
+async function sortAgeGrade(thisPage,ag,rn) (
+  const sortSelect = document.querySelector('select.js-ResultsSelect');
+  try {
+    let position = await thisPage.evaluate((rn,ag,sortSelect) => {
+      return new Promise((resolve,reject) => {
+        sortSelect.value = 'agegrade-desc';
+        sortSelect.dispatchEvent(new Event('change',{bubbles: true }));
+        setTimeout(() => {
+          var rows = document.querySelectorAll('tr.results-row');
+          if (!rows) {
+            reject(new Error('Failed to sort by Age-Grade, '+ag));
+            return null;
+          }
+          for (let i = 0; i < rows.length; i++) {
+            let nameCell = rows[i].querySelector('td:nth-child(2)');
+            if (nameCell && nameCell.textContent.trim() === rn) {
+              resolve(i+1);
+            }
+          } 
+          reject(new Error('Failed to find sorted '+ag+' position for runner, '+rn+' in results, '+thisUrl));
+          return null;
+        }, 100);  // virtually instant to re-sort same # of rows
+      });
+    }, rn,ag,sortSelect);    // ensure variables are in scope of the page evaluate
+    // Reset the order to revert to Sort by Position for the subsequent position (i.e Age-Category filter)
+    await thisPage.evaluate((sortSelect) => {
+      sortSelect.value = 'position-desc';
+      sortSelect.dispatchEvent(new Event('change',{bubbles: true}));
+    }, sortSelect);
+    await thisPage.waitForTimeout(100); // virtually instant to re-sort the # of rows
+    return position;
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+}
+  
+async function filterAgeCategory(thisPage,ac,rn) {
+  const searchSelector = 'input[name="search"]';
+  try {
+    await thisPage.waitForSelector(searchSelector);
+    let filterSelect = document.querySelector(searchSelector);
+    let position = await thisPage.evaluate((rn,ac,filterSelect) => {
+      return new Promise((resolve,reject) => {
+        filterSelect.value = ac;
+        filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
+        setTimeout(() => {
+          var rows = document.querySelectorAll('tr.results-row');
+          if (!rows) {
+            reject(new Error('Failed to filter on Age-Category, '+ac));
+            return null;
+          }
+          for (let i=0; i<rows.length; i++) {
+            let nameCell = rows[i].querySelector('td:nth-child(2)');
+            if (nameCell && nameCell.textContent.trim() === rn) {
+              resolve(i+1);
+            }
+          }
+          reject(new Error('Failed to find position filtered by Age-Category, '+ac+' for runner, '+rn));
+          return null;
+        }, 1000);  // allow a second to filter to reduce the # of rows
+      });
+    }, rn,ac,filterSelect);
+    // Reset filter if needed
+    // Reset the filter ONLY needed if a subsequent position is required (e.g. Gender position)
+    // await thisPage.evaluate((filterSelect) => {
+      // filterSelect.value = '';  // remove filter, perhaps Gender also next?
+      // filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
+    // }, filterSelect);
+    // await thisPage.waitForTimeout(1000); // allow a second for unfilter to increase the # of rows
+    return position;
+  } catch (err) {
+    console.error(err);
+    throw err;
+  }
+}
+
 exports.filterUrl = async (req, res) => {
   // Default in case no ? and & parameters passed
   let thisUrl = req.query?.url || 'https://www.parkrun.org.uk/havant/results/638/'; // Sample parkrun event
@@ -155,58 +232,12 @@ exports.filterUrl = async (req, res) => {
   let ac = req.query?.ac || 'VM55-59';      // Age-Category filter for matching Dave (expect 2)
   let ag = req.query?.ag || 'Age-Grade';    // Age-Grade sort for matching Dave (expect 9)
   var thisPage = await loadUrl(thisUrl,true);
-  try {
-    var positions = await thisPage.evaluate((rn, ac, ag) => {  // returns two positions
-      // Sort by (descending) Age-Grade, to get ag desc position
-      let agPosition = (() => {
-        let sortSelect = document.querySelector('select.js-ResultsSelect');
-        sortSelect.value = 'agegrade-desc';
-        sortSelect.dispatchEvent(new Event('change',{bubbles: true }));
-        await thisPage.waitForTimeout(100); // virtually instant to re-sort same # of rows
-        ensure awaiting the correct elements and appropriate delay after sort/filter
-        var rows = document.querySelectorAll('tr.results-row');
-        if (!rows) {
-          throw new Error('Failed to sort by Age-Grade, '+ag);
-        }
-        for (let i = 0; i < rows.length; i++) {
-          const nameCell = rows[i].querySelector('td:nth-child(2)');
-          if (nameCell && nameCell.textContent.trim() === rn) {
-            return i+1;
-          }
-        }
-        throw new Error('Failed to find sorted '+ag+' position for runner, '+rn+' in results, '+thisUrl);
-      })();
-      // ...and then reset the ag to revert to Sort by Position for the Age-Category filter
-      sortSelect.value = 'position-desc';
-      sortSelect.dispatchEvent(new Event('change',{bubbles: true }));
-      await thisPage.waitForTimeout(100); // virtually instant to re-sort the # of rows
-      const searchSelector = 'input[name="search"]';
-      await thisPage.waitForSelector(searchSelector);
-      // Filter by Age-Category to get ac position 
-      let acPosition = (() => {
-        let searchInput = document.querySelector(searchSelector);
-        searchInput.value = ac;
-        searchInput.dispatchEvent(new Event('input',{bubbles: true}));
-        await thisPage.waitForTimeout(500); // half a second for filter to reduce the # of rows?
-        var rows = document.querySelectorAll('tr.results-row');
-        if (!rows) {
-          throw new Error('Failed to filter on Age-Category, '+ac);
-        }
-        for (let i = 0; i < rows.length; i++) {
-          const nameCell = rows[i].querySelector('td:nth-child(2)');
-          if (nameCell && nameCell.textContent.trim() === rn) {
-            return i + 1;
-          }
-        }
-        throw new Error('Failed to find position filtered by Age-Category, '+ac+' for runner, '+rn);
-      })();
-      // Consider removing the ac filter if another order is required (e.g. Gender position)
-      // searchInput.value = '';  // remove filter, perhaps Gender also next?
-      // searchInput.dispatchEvent(new Event('input',{bubbles: true}));
-      // await thisPage.waitForTimeout(500); // half a second for unfilter to increase the # of rows?
-      return [acPosition,agPosition];    // return all positions required
-    }, searchSelector,rn,ac,ag);    // ensure constants and variables are in scope of the page evaluate
-    res.status(200).send(positions.toString());    // require parsing after
+  try {  // Get 2 (or more) positions in series
+    // 1. Sort by (descending) Age-Grade, to get ag desc position of runner
+    let agPosition = await sortAgeGrade(thisPage,ag,rn);
+    // 2. Filter by Age-Category to get ac position of runner
+    let acPosition = await filterAgeCategory(thisPage,ac,rn);
+    res.status(200).json({acPosition,agPosition});    // in expected order
   } catch (err) {
     console.error('ERROR:',err);
     res.status(500).send('ERROR: '+err.message);
