@@ -121,7 +121,7 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
       if (pageOnly) return thisPage;
       else {
         var content = await thisPage.content();
-        console.log('Content of page is:\n',content);
+        // console.log('Content of page is:\n',content);
         return content;
       }
     }
@@ -148,92 +148,87 @@ exports.getUrl = async (req,res) => {
   }
 }
 
+async function getRunnerRows(thisPage) {
+  await thisPage.waitForTimeout(200); // wait a moment to sort/filter rows
+  return await thisPage.$$eval('tr.results-row',rows => Array.from(rows));
+}
+
+function getMatchPosition(rows,name) {
+  var posn;
+  for (let i=0; i<rows.length; i++) {
+    let nameCell = rows[i].querySelector('td:nth-child(2)');
+    if (nameCell && nameCell.textContent.trim() === name) {
+      posn = i+1;
+      break;
+    }
+  }
+  return posn;
+  // OR
+  // let index = Array.from(rows)
+  //   .findIndex(row => row.querySelector('td:nth-child(2)')
+  //   .textContent.trim() === name);
+  // return index === -1 ? null : index + 1;
+}
+
+async function sortPositions(
+  thisPage,
+  order = 'position-desc')
+{
+  await thisPage.evaluate((order) => {
+    let sortSelect = document.querySelector('select.js-ResultsSelect');    // valid inside evaluate
+    sortSelect.value = order;
+    sortSelect.dispatchEvent(new Event('change',{bubbles: true}));
+  }, order);  // ensures order is in scope of the thisPage evaluation
+}
+
 async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
   try {
-    let position = await thisPage.evaluate((matchRunner,ageGrade) => {
-      const sortSelect = document.querySelector('select.js-ResultsSelect');
-      return new Promise((resolve,reject) => {
-        sortSelect.value = 'agegrade-desc';
-        sortSelect.dispatchEvent(new Event('change',{bubbles: true }));
-        setTimeout(() => {
-          var rows = document.querySelectorAll('tr.results-row');
-          if (!rows) {
-            reject(new Error('Failed to sort by Age-Grade, '+ageGrade));
-            return null;
-          }
-          var posn;
-          for (let i = 0; i < rows.length; i++) {
-            let nameCell = rows[i].querySelector('td:nth-child(2)');
-            if (nameCell && nameCell.textContent.trim() === matchRunner) {
-              posn = i+1;
-              break;
-            }
-          }
-          if (posn) {
-            console.log(ageGrade+' position for matching runner, '+matchRunner+' is '+posn);
-            resolve(posn);
-          } else {
-            reject(new Error('Failed to find sorted '+ageGrade+' position for matching runner, '+matchRunner+' in results, '+thisUrl));
-            return null;
-          }
-        }, 100);  // virtually instant to re-sort same # of rows
-      });
-    }, matchRunner,ageGrade);    // ensure variables are in scope of the page evaluate
-    // Reset the order to revert to default Sort by Position for the subsequent position (i.e Age-Category filter)
-    await thisPage.evaluate(() => {
-      const sortSelect = document.querySelector('select.js-ResultsSelect');  // as before
-      sortSelect.value = 'position-desc';
-      sortSelect.dispatchEvent(new Event('change',{bubbles: true}));
-    });
-    await thisPage.waitForTimeout(100); // virtually instant to re-sort the # of rows
+    await sortPositions(thisPage,'agegrade-desc');
+    let runners = getRunnerRows(thisPage);
+    console.log('Number of '+ageGrade+' runners found: '+runners.length);
+    if (!runners) throw new Error('Failed to find any runners by '+ageGrade);
+    let position = getMatchPosition(runners,matchRunner);
+    if (position) console.log(ageGrade+' position for matching runner, '+matchRunner+' is '+position);
+    else throw new Error('Failed to find matching runner, '+matchRunner+' in sorted '+ageGrade+' within results, '+thisPage.Url());
+    await sortPositions(thisPage); // Reset to default order before getting next order
     return position;
   } catch (err) {
     console.error(err,'on',thisPage.url());
     throw err;
   }
 }
-  
+
+async function filterPositions(
+  thisPage,searchSelector,
+  category = '')  // default removes filter
+{
+  await thisPage.evaluate((searchSelector,category) => {  // Select the category...
+    let filterSelect = document.querySelector(searchSelector); // valid inside evaluate
+    if (!filterSelect) throw new Error('Filter select not found');
+    filterSelect.value = category;
+    filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
+  }, searchSelector,category);
+  await thisPage.waitForFunction((searchSelector, category) => {  // ...then wait until filtered
+    let filterSelect = document.querySelector(searchSelector);
+    console.log('filterSelect:', filterSelect);
+    return filterSelect.value === category;
+  }, searchSelector,category);
+}
+
 async function filterAgeCategory(thisPage,matchRunner,ageCat) {
   const searchSelector = 'input[name="search"]';
   // Assumes default order of run-time position is preset on runner list (position-desc)
   try {
     await thisPage.waitForSelector(searchSelector);
-    let position = await thisPage.evaluate((matchRunner,ageCat) => {
-      let filterSelect = document.querySelector(searchSelector);
-      return new Promise((resolve,reject) => {
-        filterSelect.value = ageCat;
-        filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
-        setTimeout(() => {
-          var rows = document.querySelectorAll('tr.results-row');
-          if (!rows) {
-            reject(new Error('Failed to filter on Age-Category, '+ageCat));
-            return null;
-          }
-          var posn;
-          for (let i=0; i<rows.length; i++) {
-            let nameCell = rows[i].querySelector('td:nth-child(2)');
-            if (nameCell && nameCell.textContent.trim() === matchRunner) {
-              posn = i+1;
-              break;
-            }
-          }
-          if (posn) {
-            console.log(ageCat+' position for matching runner, '+matchRunner+' is '+posn);
-            resolve(posn);
-          } else {
-            reject(new Error('Failed to find position filtered by Age-Category, '+ageCat+' matching runner, '+matchRunner));
-            return null;
-          }
-        }, 1000);  // allow a second to filter to reduce the # of rows
-      });
-    }, matchRunner,ageCat);
-    // Reset the filter ONLY needed if a subsequent position is required (e.g. Gender position)
-    // await thisPage.evaluate(() => {
-      // let filterSelect = document.querySelector(searchSelector);    // as before
-      // filterSelect.value = '';  // remove filter, perhaps Gender also next?
-      // filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
-    // });
-    // await thisPage.waitForTimeout(1000); // allow a second for unfilter to increase the # of rows
+    console.log('The input filter to search for '+ageCat+' was found!');
+    await filterPositions(thisPage,searchSelector,ageCat);
+    let runners = getRunnerRows(thisPage);
+    console.log('Number of '+ageCat+' runners found: '+runners.length);
+    if (!runners) throw new Error('Failed to filter on Age-Category, '+ageCat);
+    let position = getMatchPosition(runners,matchRunner);
+    if (position) console.log(ageCat+' position for matching runner, '+matchRunner+' is '+position);
+    else throw new Error('Failed to find matching runner, '+matchRunner+' in filtered '+ageCat+' within results, '+thisPage.Url());
+    await filterPositions(thisPage,searchSelector); // Reset filter WHEN a subsequent position required (e.g. Gender position)
     return position;
   } catch (err) {
     console.error(err, 'on', thisPage.url());
@@ -256,9 +251,9 @@ exports.filterUrl = async (req,res) => {
   var thisPage = await loadUrl(thisUrl,true);
   try {  // Get 2 (or more) positions in series
     // 1. Sort by (descending) Age-Grade, to get ageGrade position of matchRunner
-    let agPosition = await sortAgeGrade(thisPage,matchRunner,ageCat);
+    let agPosition = await sortAgeGrade(thisPage,matchRunner,ageGrade);
     // 2. Filter by Age-Category to get ageCat position of matchRunner
-    let acPosition = await filterAgeCategory(thisPage,matchRunner,ageGrade);
+    let acPosition = await filterAgeCategory(thisPage,matchRunner,ageCat);
     res.status(200).json({acPosition,agPosition});    // in expected order
   } catch (err) {
     console.error('ERROR:',err);
