@@ -148,7 +148,7 @@ exports.getUrl = async (req,res) => {
   }
 }
 
-async function sortAgeGrade(thisPage,ag,rn) (
+async function sortAgeGrade(thisPage,ag,rn) {
   const sortSelect = document.querySelector('select.js-ResultsSelect');
   try {
     let position = await thisPage.evaluate((rn,ag,sortSelect) => {
@@ -172,7 +172,7 @@ async function sortAgeGrade(thisPage,ag,rn) (
         }, 100);  // virtually instant to re-sort same # of rows
       });
     }, rn,ag,sortSelect);    // ensure variables are in scope of the page evaluate
-    // Reset the order to revert to Sort by Position for the subsequent position (i.e Age-Category filter)
+    // Reset the order to revert to default Sort by Position for the subsequent position (i.e Age-Category filter)
     await thisPage.evaluate((sortSelect) => {
       sortSelect.value = 'position-desc';
       sortSelect.dispatchEvent(new Event('change',{bubbles: true}));
@@ -187,6 +187,7 @@ async function sortAgeGrade(thisPage,ag,rn) (
   
 async function filterAgeCategory(thisPage,ac,rn) {
   const searchSelector = 'input[name="search"]';
+  // Assumes default order of run-time position is preset on runner list (position-desc)
   try {
     await thisPage.waitForSelector(searchSelector);
     let filterSelect = document.querySelector(searchSelector);
@@ -225,12 +226,18 @@ async function filterAgeCategory(thisPage,ac,rn) {
   }
 }
 
+/**
+* Called by GAS UrlFetch function, (via browser function to switch below)
+*   Example https://<GC service>.run.app?url=https://www.parkrun.org.uk/havant/results/638&rn=Dave+BUSH&ac=VM55-59&ag=
+* Returns two positions (in JSON format): Age-Category order and Age-Grade (%age) order
+*/
 exports.filterUrl = async (req, res) => {
-  // Default in case no ? and & parameters passed
+  // Default parameters in case no ? and & parameters passed
   let thisUrl = req.query?.url || 'https://www.parkrun.org.uk/havant/results/638/'; // Sample parkrun event
   let rn = req.query?.rn || 'Dave BUSH';    // Sample runner at Havant parkrun #638
   let ac = req.query?.ac || 'VM55-59';      // Age-Category filter for matching Dave (expect 2)
   let ag = req.query?.ag || 'Age-Grade';    // Age-Grade sort for matching Dave (expect 9)
+// begin
   var thisPage = await loadUrl(thisUrl,true);
   try {  // Get 2 (or more) positions in series
     // 1. Sort by (descending) Age-Grade, to get ag desc position of runner
