@@ -176,6 +176,7 @@ async function sortPositions(
 {
   await thisPage.evaluate((order) => {
     let sortSelect = document.querySelector('select.js-ResultsSelect');    // valid inside evaluate
+    console.log('sortSelect:', sortSelect);
     sortSelect.value = order;
     sortSelect.dispatchEvent(new Event('change',{bubbles: true}));
   }, order);  // ensures order is in scope of the thisPage evaluation
@@ -189,7 +190,7 @@ async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
     if (!runners) throw new Error('Failed to find any runners by '+ageGrade);
     let position = getMatchPosition(runners,matchRunner);
     if (position) console.log(ageGrade+' position for matching runner, '+matchRunner+' is '+position);
-    else throw new Error('Failed to find matching runner, '+matchRunner+' in sorted '+ageGrade+' within results, '+thisPage.Url());
+    else throw new Error('Failed to find matching runner, '+matchRunner+' in sorted '+ageGrade+' within results, '+thisPage.url());
     await sortPositions(thisPage); // Reset to default order before getting next order
     return position;
   } catch (err) {
@@ -227,7 +228,7 @@ async function filterAgeCategory(thisPage,matchRunner,ageCat) {
     if (!runners) throw new Error('Failed to filter on Age-Category, '+ageCat);
     let position = getMatchPosition(runners,matchRunner);
     if (position) console.log(ageCat+' position for matching runner, '+matchRunner+' is '+position);
-    else throw new Error('Failed to find matching runner, '+matchRunner+' in filtered '+ageCat+' within results, '+thisPage.Url());
+    else throw new Error('Failed to find matching runner, '+matchRunner+' in filtered '+ageCat+' within results, '+thisPage.url());
     await filterPositions(thisPage,searchSelector); // Reset filter WHEN a subsequent position required (e.g. Gender position)
     return position;
   } catch (err) {
