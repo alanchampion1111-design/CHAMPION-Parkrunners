@@ -149,9 +149,9 @@ exports.getUrl = async (req,res) => {
 }
 
 async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
-  const sortSelect = document.querySelector('select.js-ResultsSelect');
   try {
-    let position = await thisPage.evaluate((matchRunner,ageGrade,sortSelect) => {
+    let position = await thisPage.evaluate((matchRunner,ageGrade) => {
+      const sortSelect = document.querySelector('select.js-ResultsSelect');
       return new Promise((resolve,reject) => {
         sortSelect.value = 'agegrade-desc';
         sortSelect.dispatchEvent(new Event('change',{bubbles: true }));
@@ -165,7 +165,8 @@ async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
           for (let i = 0; i < rows.length; i++) {
             let nameCell = rows[i].querySelector('td:nth-child(2)');
             if (nameCell && nameCell.textContent.trim() === matchRunner) {
-              var posn = i+1;
+              posn = i+1;
+              break;
             }
           }
           if (posn) {
@@ -177,12 +178,13 @@ async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
           }
         }, 100);  // virtually instant to re-sort same # of rows
       });
-    }, matchRunner,ageGrade,sortSelect);    // ensure variables are in scope of the page evaluate
+    }, matchRunner,ageGrade);    // ensure variables are in scope of the page evaluate
     // Reset the order to revert to default Sort by Position for the subsequent position (i.e Age-Category filter)
-    await thisPage.evaluate((sortSelect) => {
+    await thisPage.evaluate(() => {
+      const sortSelect = document.querySelector('select.js-ResultsSelect');  // as before
       sortSelect.value = 'position-desc';
       sortSelect.dispatchEvent(new Event('change',{bubbles: true}));
-    }, sortSelect);
+    });
     await thisPage.waitForTimeout(100); // virtually instant to re-sort the # of rows
     return position;
   } catch (err) {
@@ -196,8 +198,8 @@ async function filterAgeCategory(thisPage,matchRunner,ageCat) {
   // Assumes default order of run-time position is preset on runner list (position-desc)
   try {
     await thisPage.waitForSelector(searchSelector);
-    let filterSelect = document.querySelector(searchSelector);
-    let position = await thisPage.evaluate((matchRunner,ageCat,filterSelect) => {
+    let position = await thisPage.evaluate((matchRunner,ageCat) => {
+      let filterSelect = document.querySelector(searchSelector);
       return new Promise((resolve,reject) => {
         filterSelect.value = ageCat;
         filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
@@ -212,6 +214,7 @@ async function filterAgeCategory(thisPage,matchRunner,ageCat) {
             let nameCell = rows[i].querySelector('td:nth-child(2)');
             if (nameCell && nameCell.textContent.trim() === matchRunner) {
               posn = i+1;
+              break;
             }
           }
           if (posn) {
@@ -223,13 +226,13 @@ async function filterAgeCategory(thisPage,matchRunner,ageCat) {
           }
         }, 1000);  // allow a second to filter to reduce the # of rows
       });
-    }, matchRunner,ageCat,filterSelect);
-    // Reset filter if needed
+    }, matchRunner,ageCat);
     // Reset the filter ONLY needed if a subsequent position is required (e.g. Gender position)
-    // await thisPage.evaluate((filterSelect) => {
+    // await thisPage.evaluate(() => {
+      // let filterSelect = document.querySelector(searchSelector);    // as before
       // filterSelect.value = '';  // remove filter, perhaps Gender also next?
       // filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
-    // }, filterSelect);
+    // });
     // await thisPage.waitForTimeout(1000); // allow a second for unfilter to increase the # of rows
     return position;
   } catch (err) {
