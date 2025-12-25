@@ -148,34 +148,62 @@ exports.getUrl = async (req,res) => {
   }
 }
 
+// async function getRunnerRows(thisPage) > preview
+/*
+<table class="ResultsTable js-ResultsTable Results-table--compact">
+:
+<tbody class="js-ResultsBody">
+  <tr class="Results-table-row" data-name="James HARWOOD" data-agegroup="VM35-39" ... data-gender="Male" data-position="1" ...>
+  :
+  </tr>
+</tbody>
+*/
 async function getRunnerRows(thisPage) {
-  await thisPage.waitForTimeout(200); // wait a moment to sort/filter rows
-  return await thisPage.$$eval('tr.results-row',rows => Array.from(rows));
+  // await thisPage.waitForTimeout(200); // wait a moment to sort/filter rows
+  const resultsTABLE = 'tr.Results-table-row';
+  await thisPage.waitForSelector(resultsTABLE);
+  return await thisPage.$$(resultsTABLE);
 }
 
-function getMatchPosition(rows,name) {
-  var posn;
-  for (let i=0; i<rows.length; i++) {
-    let nameCell = rows[i].querySelector('td:nth-child(2)');
-    if (nameCell && nameCell.textContent.trim() === name) {
-      posn = i+1;
-      break;
-    }
-  }
-  return posn;
-  // OR
-  // let index = Array.from(rows)
-  //   .findIndex(row => row.querySelector('td:nth-child(2)')
-  //   .textContent.trim() === name);
-  // return index === -1 ? null : index + 1;
+async function getRunnerNames(thisPage) {
+  // await thisPage.waitForTimeout(200); // wait a moment to sort/filter rows
+  const resultsTABLE = 'tr.Results-table-row';
+  const nameField='data-name';
+  await thisPage.waitForSelector(resultsTABLE);
+  return await thisPage.$$eval(resultsTABLE,
+    rows => rows.map(row => row.getAttribute(nameField))
+  );
 }
 
+function getMatchRow(rows,name) {
+  let position = Array.from(names)
+    .findIndex(row => row.getAttribute('data-name') === name);
+  return position === -1 ? null : position+1;
+}
+
+function getMatchName(names, name) {
+  let position = names.indexOf(name);
+  return position === -1 ? null : position+1;
+}
+
+// async function sortPositions > preview
+/*
+  <select name="sort" class="js-ResultsSelect">
+    <option value="position-asc">Sort by Position ▲</option>
+    <option value="position-desc">Sort by Position ▼</option>
+    <option value="runs-asc">Sort by Total parkruns ▲</option>
+    <option value="runs-desc">Sort by Total parkruns ▼</option>
+    <option value="agegrade-asc">Sort by Age Grade % ▲</option>
+    <option value="agegrade-desc">Sort by Age Grade % ▼</option>
+  </select>
+*/
 async function sortPositions(
   thisPage,
-  order = 'position-desc')
-{
+  order = 'position-desc')    // as is the default option on opening the page
+{    // same dataset that may be quickly re-ordered if Age-Grade sort prior to getting other positions
   await thisPage.evaluate((order) => {
-    let sortSelect = document.querySelector('select.js-ResultsSelect');    // valid inside evaluate
+    const sortSelector = 'select[name="sort"]';
+    let sortSelect = document.querySelector(sortSelector);    // valid inside evaluate
     console.log('sortSelect:', sortSelect);
     sortSelect.value = order;
     sortSelect.dispatchEvent(new Event('change',{bubbles: true}));
@@ -185,10 +213,10 @@ async function sortPositions(
 async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
   try {
     await sortPositions(thisPage,'agegrade-desc');
-    let runners = getRunnerRows(thisPage);
+    let runners = getRunnerNames(thisPage);
     console.log('Number of '+ageGrade+' runners found: '+runners.length);
     if (!runners) throw new Error('Failed to find any runners by '+ageGrade);
-    let position = getMatchPosition(runners,matchRunner);
+    let position = getMatchName(runners,matchRunner);
     if (position) console.log(ageGrade+' position for matching runner, '+matchRunner+' is '+position);
     else throw new Error('Failed to find matching runner, '+matchRunner+' in sorted '+ageGrade+' within results, '+thisPage.url());
     await sortPositions(thisPage); // Reset to default order before getting next order
@@ -199,37 +227,85 @@ async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
   }
 }
 
+// async function filterPositions > preview
+/*
+  <div class="Results-filters js-ResultsFilters">
+    <div class="Results-filters-input">
+      <input type="text" name="search" class="js-ResultsSearch selectized"
+        placeholder="Start typing to search" tabindex="-1" value="" style="display: none;">
+      <div class="selectize-control js-ResultsSearch multi plugin-remove_button">
+        <div class="selectize-input items not-full has-options">
+          <input type="text" autocomplete="off" tabindex="" 
+            placeholder="Start typing to search" style="width: 153px; opacity: 1; position: relative; left: 0px;">
+        </div>
+        <div class="selectize-dropdown multi js-ResultsSearch plugin-remove_button" style="display: none; width: 395px; top: 50px; left: 0px; visibility: visible;">
+          <div class="selectize-dropdown-content">
+            :
+            // sample subset category for Gender, Age Group, & Achievement
+            <div class="option" data-selectable="" data-value="gender: Male">
+              <span class="value">Male</span>
+              <span class="type type--gender">Gender</span>
+            </div>
+            <div class="option" data-selectable="" data-value="gender: Female">
+              <span class="value">Female</span>
+              <span class="type type--gender">Gender</span>
+            </div>
+            <div class="option" data-selectable="" data-value="agegroup: JM10">
+              <span class="value">JM10</span>
+              <span class="type type--agegroup">Age Group</span>
+            </div>
+            :
+            // samples after typing VM, which automatically gets highlighted
+            <div class="option" data-selectable="" data-value="agegroup: VM35-39">
+              <span class="value"><span class="highlight">VM</span>35-39</span>
+              <span class="type type--agegroup">Age Group</span>
+            </div>
+            <div class="option" data-selectable="" data-value="agegroup: VM40-44">
+              <span class="value"><span class="highlight">VM</span>40-44</span>
+              <span class="type type--agegroup">Age Group</span>
+            </div>
+            :
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+*/
 async function filterPositions(
-  thisPage,searchSelector,
+  thisPage,
   category = '')  // default removes filter
 {
-  await thisPage.evaluate((searchSelector,category) => {  // Select the category...
-    let filterSelect = document.querySelector(searchSelector); // valid inside evaluate
-    if (!filterSelect) throw new Error('Filter select not found');
+  await thisPage.evaluate((category) => {    // Enter category and trigger search
+    // WARNING: thisPage.waitForSelector('input[name="search"]') fails because display: none
+    // ... div.selectize-input.items.not-full.has-options
+    const inputSelector = '.selectize-input input';  // abbreviated form
+    let filterSelect = document.querySelector(inputSelector);  // valid inside evaluate
+    if (!filterSelect) throw new Error('The input filter selector, '+inputSelector+' was NOT found!');
+    else console.log('The input filter selector, '+inputSelector+' was found');
     filterSelect.value = category;
     filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
-  }, searchSelector,category);
-  await thisPage.waitForFunction((searchSelector, category) => {  // ...then wait until filtered
-    let filterSelect = document.querySelector(searchSelector);
-    console.log('filterSelect:', filterSelect);
-    return filterSelect.value === category;
-  }, searchSelector,category);
+  }, category);
+  await thisPage.waitForFunction((category) => {  //...and wait for a matching pull-down optopn
+    const optionValue = 'agegroup: '+category;    // otherwise gender: when Male/Female
+    const dataField = 'data-value';
+    let filterOption = document.querySelector('.selectize-dropdown-content .option['+dataField+'="'+optionValue+'"]');
+    let filterMatch = filterOption && (filterOption.getAttribute(dataField) === optionValue);
+    if (!filterMatch) throw new Error('The filter option for '+category+' did NOT match any pull-down option!');
+    else console.log('The filter option for '+category+' matched a pull-down option');
+  }, category);
 }
 
 async function filterAgeCategory(thisPage,matchRunner,ageCat) {
-  const searchSelector = 'input[name="search"]';
   // Assumes default order of run-time position is preset on runner list (position-desc)
   try {
-    await thisPage.waitForSelector(searchSelector);
-    console.log('The input filter to search for '+ageCat+' was found!');
-    await filterPositions(thisPage,searchSelector,ageCat);
-    let runners = getRunnerRows(thisPage);
+    await filterPositions(thisPage,ageCat);
+    let runners = getRunnerNames(thisPage);
     console.log('Number of '+ageCat+' runners found: '+runners.length);
     if (!runners) throw new Error('Failed to filter on Age-Category, '+ageCat);
-    let position = getMatchPosition(runners,matchRunner);
+    let position = getMatchName(runners,matchRunner);
     if (position) console.log(ageCat+' position for matching runner, '+matchRunner+' is '+position);
     else throw new Error('Failed to find matching runner, '+matchRunner+' in filtered '+ageCat+' within results, '+thisPage.url());
-    await filterPositions(thisPage,searchSelector); // Reset filter WHEN a subsequent position required (e.g. Gender position)
+    await filterPositions(thisPage); // Reset filter WHEN a subsequent position required (e.g. Gender position)
     return position;
   } catch (err) {
     console.error(err, 'on', thisPage.url());
