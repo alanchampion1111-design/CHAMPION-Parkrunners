@@ -252,7 +252,7 @@ async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
           <span class="value"><span class="highlight">VM</span>35-39</span>
           <span class="type type--agegroup">Age Group</span>
         </div>
-// AFTER clicking the input box, and entering the age Category, the value is evident in both the visible and the hidden fields
+// AFTER entering the age Category, the value is evident in both the visible and the hidden fields
   <input type="text" name="search" class="js-ResultsSearch selectized"
     placeholder="Start typing to search" tabindex="-1" value="agegroup: VM55-59" style="display: none;">
   <div class="selectize-control js-ResultsSearch multi plugin-remove_button">
@@ -266,7 +266,7 @@ async function filterPositions(
   catClass = 'agegroup')   // alternatively 'gender'
 {
   const searchINPUT = 'input#search';          
-  await thisPage.click(searchINPUT);             //  1. Focus on search input box
+  // await thisPage.click(searchINPUT);          //  1. Focus is automatic on typing in 2.
   await thisPage.type(searchINPUT,category);     //  2. Type valid Age-Category or Gender
   await thisPage.keyboard.press('Enter');        //  3. Press Enter to effect
   let expectedValue = catClass+': '+category;    // ...otherwise gender: when Male/Female
