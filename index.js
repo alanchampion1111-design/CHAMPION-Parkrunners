@@ -278,7 +278,7 @@ async function filterPositions(
   const selectedClassITEM = '.selectize-input .item';   
   let selectedValue = await thisPage.$eval(      //  4. Verify match to pull-down in the item that follows...            
     selectedClassITEM, elem => elem.value);      //     ...as likewise directed into searchINPUT (but hidden!)
-  if (selectedValue !== expectedValue) throw new Error('Expected '+expectedValue+ category but got '+selectedValue);
+  if (selectedValue !== expectedValue) throw new Error('Expected '+expectedValue+' category but got '+selectedValue);
   /* else */ console.log('The filter option for '+category+' matched a pull-down option');
   // TODO: Perhaps may also await the table upfdate, but may be handled without re-query on the browser side?
   // Assume table update of row subset is instant? if filter handled locally by scripts
@@ -313,7 +313,7 @@ async function filterCategory(
     await filterPositions(thisPage,category,catClass);
     let runners = await getRunnerNames(thisPage);
     console.log('Number of '+category+' runners found: '+runners.length);
-    if (!runners.length) throw new Error('Failed to filter on '+category+' Category');
+    if (!runners.length) throw new Error('Failed to filter on '+category+' category');
     let position = getMatchName(runners,matchRunner);
     if (position) console.log(category+' position for matching runner, '+matchRunner+' is '+position);
     else throw new Error('Failed to find matching runner, '+matchRunner+' in filtered '+category+' within results, '+thisPage.url());
