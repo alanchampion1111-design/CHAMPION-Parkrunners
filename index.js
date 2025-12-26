@@ -129,6 +129,7 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
     console.error('ERROR: Failed to retrieve page:',err);
     throw err;
   }
+  // TODO: Consider closing the page and avoid re-using if parallel approach better and less risky
 }
 
 exports.getUrl = async (req,res) => {
@@ -234,6 +235,7 @@ async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
 
 // async function filterPositions > preview
 /*
+// BEFORE entering the age Category,
   <input type="text" name="search" class="js-ResultsSearch selectized"
     placeholder="Start typing to search" tabindex="-1" value="" style="display: none;">
   <div class="selectize-control js-ResultsSearch multi plugin-remove_button">
@@ -265,24 +267,39 @@ async function filterPositions(
   thisPage,category,
   catClass = 'agegroup')   // alternatively 'gender'
 {
-  const searchINPUT = 'input#search';          
-  // await thisPage.click(searchINPUT);          //  1. Focus is automatic on typing in 2.
-  await thisPage.type(searchINPUT,category);     //  2. Type valid Age-Category or Gender
-  await thisPage.keyboard.press('Enter');        //  3. Press Enter to effect
-  let expectedValue = catClass+': '+category;    // ...otherwise gender: when Male/Female
-  let selectedValue = await thisPage.$eval(      // Instant but possibly after search applied to the the table?
-    searchINPUT, elem => elem.value);
-  expect(selectedValue).toBe(expectedValue);     //  4. Verify matches a pull-down optopn, or throw error!
+  // var initialRowCount = await thisPage.locator('.table-selector tr').count();  // Check WARNING below?
+  const searchINPUT = 'input#search';            // Does not find 1st input field since hidden!!
+  const classINPUT = '.selectize-input input';   // Finds 2nd input text field (within the class element)
+  await thisPage.waitForSelector(classINPUT);
+  await thisPage.click(classINPUT);              //  1. Focus may be automatic on typing in 2.
+  await thisPage.type(classINPUT,category);      //  2. Type valid Age-Category (or Male/Female Gender)
+  await thisPage.keyboard.press('Enter');        //  3. Press Enter to select matching pull-down...
+  let expectedValue = catClass+': '+category;    //    ...potentially likewise with gender: Male/Female
+  const selectedClassITEM = '.selectize-input.item';   
+  let selectedValue = await thisPage.$eval(      //  4. Final selection found in the item that follows...            
+    selectedClassITEM, elem => elem.value);      //     ...as likewise directed into searchINPUT (but hidden!)
+  expect(selectedValue).toBe(expectedValue);     //  5. Verify entry matches a pull-down opton, or throw error!
   /* else */ console.log('The filter option for '+category+' matched a pull-down option');
-  // Perhaps may also await the table upfdate, but may be handled without re-query on the browser side?
+  // TODO: Perhaps may also await the table upfdate, but may be handled without re-query on the browser side?
+  // Assume table update of row subset is instant? if filter handled locally by scripts
+  // WARNING: If this fails because of a backend service, consider continue only after number of rows differ
+  // await thisPage.waitForFunction((initialRowCount) => {
+  //   var newRowCount = document.querySelectorAll('.table-selector tr').length;
+  //  return newRowCount !== initialRowCount;
+  //  }, initialRowCount);
 }
 
+/**
+*  This does a reset to complement the above filterPositions within filterCategory
+*/
 async function unfilterCategory(thisPage) {
   // This only resets the filter search, without impacting the sort order
-  const searchINPUT = 'input#search'; 
-  await thisPage.click('.selectize-input .remove');    // assume only one filter class
+  const classREMOVE = '.selectize-input .remove'; 
+  await thisPage.click(classREMOVE);    // assume a single filter category
+  const selectedClassITEM = '.selectize-input.item';  
   await expect(thisPage.$eval(
-    searchINPUT, elem => elem.value)).toBe('');
+    selectedClassITEM, elem => elem.value)).toBe('');
+  // WARNING: Consider continue (as above) only after number of rows differ
 }
 
 async function filterCategory(
@@ -343,7 +360,7 @@ exports.filterUrl = async (req,res) => {
     console.error('ERROR:',err);
     res.status(500).send('ERROR: '+err.message);
   } finally {
-    // await thisPage.close();  // re-use page may fail??, consider new Page for each parkrun results instance
+    // TODO: await thisPage.close();  // re-use page may fail??, consider new Page for each parkrun results instance
     console.warn('WARNING: If re-using the same page, the normal parallel performance may be slower (or otherwise interfere)');
   }
 }
