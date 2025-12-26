@@ -166,10 +166,9 @@ async function getRunnerRows(thisPage) {
 
 async function getRunnerNames(thisPage) {
   const resultsTABLE = 'tr.Results-table-row';
-  const nameField='data-name';
   await thisPage.waitForSelector(resultsTABLE);
   return await thisPage.$$eval(resultsTABLE,
-    rows => rows.map(row => row.getAttribute(nameField))
+    rows => rows.map(row => row.getAttribute('data-name'))
   );
 }
 
