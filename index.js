@@ -122,6 +122,7 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
       console.log('Loading page with URL,',thisUrl);
       await thisPage.goto(thisUrl,{waitUntil: 'domcontentloaded'});
       var content = await thisPage.content();    // always ensure page is fully loaded
+      var data = await thisPage.evaluate(() => window.const data = await thisPage.evaluate(() => window.parkrunResultsData););
       return pageOnly ? thisPage : content;  // if content, then we are done, otherwise more to do!
     }
   } catch (err) {
@@ -165,7 +166,7 @@ async function getRunnerRows(thisPage) {
 }
 
 async function getRunnerNames(thisPage) {
-  await thisPage.waitForTimeout(200); // wait a moment to sort/filter rows
+  await thisPage.waitForTimeout(2000); // wait a moment to sort/filter rows
   const resultsTABLE = 'tr.Results-table-row';
   const nameField='data-name';
   await thisPage.waitForSelector(resultsTABLE);
@@ -213,7 +214,7 @@ async function sortPositions(
 async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
   try {
     await sortPositions(thisPage,'agegrade-desc');
-    let runners = getRunnerNames(thisPage);
+    let runners = await getRunnerNames(thisPage);
     console.log('Number of '+ageGrade+' runners found: '+runners.length);
     if (!runners) throw new Error('Failed to find any runners by '+ageGrade);
     let position = getMatchName(runners,matchRunner);
@@ -301,7 +302,7 @@ async function filterAgeCategory(thisPage,matchRunner,ageCat) {
   // Assumes default order of run-time position is preset on runner list (position-desc)
   try {
     await filterPositions(thisPage,ageCat);
-    let runners = getRunnerNames(thisPage);
+    let runners = await getRunnerNames(thisPage);
     console.log('Number of '+ageCat+' runners found: '+runners.length);
     if (!runners) throw new Error('Failed to filter on Age-Category, '+ageCat);
     let position = getMatchName(runners,matchRunner);
