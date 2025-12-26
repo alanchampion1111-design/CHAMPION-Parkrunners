@@ -335,8 +335,8 @@ exports.filterUrl = async (req,res) => {
   console.log('matchRunner: '+matchRunner);
   console.log('ageCat: '+ageCat);
   console.log('ageGrade: '+ageGrade);
-  var testCmd = 'curl -X GET "'+browserURL+'/filterUrl'+'?url='+thisUrl+'&rn='+matchRunner+'&ac='+ageCat+'" \'
-    +'-H "Athorization: bearer $(gcloud auth print-identity-token)" \'
+  var testCmd = 'curl -X GET "'+browserURL+'/filterUrl'+'?url='+thisUrl+'&rn='+matchRunner+'&ac='+ageCat+'" \\'
+    +'-H "Athorization: bearer $(gcloud auth print-identity-token)" \\'
     +'-H "Content-Type: application/json"';
   console.log('Test: '+testCmd);
   var thisPage = await loadUrl(thisUrl,true);
