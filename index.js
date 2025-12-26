@@ -184,7 +184,7 @@ function getMatchName(names, name) {
   return position === -1 ? null : position+1;
 }
 
-async function waitForResultsReady() {
+async function waitForResultsReady(thisPage) {
   await thisPage.waitForFunction(() =>
     document.querySelector('.Results-table')
   );
@@ -205,7 +205,6 @@ async function sortPositions(
   thisPage,
   order = 'position-desc')    // as is the default option on opening the page
 {    // same dataset that may be quickly re-ordered if Age-Grade sort prior to getting other positions
-  await waitForResultsReady();  // sort options useless without the data
   await thisPage.evaluate((order) => {
     const sortField = 'sort';
     const sortSelector = `select[name="${sortField}"]`;
@@ -218,6 +217,7 @@ async function sortPositions(
 
 async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
   try {
+    await waitForResultsReady(thisPage);  // sort options useless without the data
     await sortPositions(thisPage,'agegrade-desc');
     let runners = await getRunnerNames(thisPage);
     console.log('Number of '+ageGrade+' runners found: '+runners.length);
@@ -281,7 +281,6 @@ async function filterPositions(
   thisPage,
   category = '')  // default removes filter
 {
-  await waitForResultsReady();  // filter options useless without the data
   await thisPage.evaluate((category) => {    // Enter category and trigger search
     // WARNING: thisPage.waitForSelector('input[name="search"]') fails because display: none
     // ... div.selectize-input.items.not-full.has-options
@@ -307,6 +306,7 @@ async function filterPositions(
 async function filterAgeCategory(thisPage,matchRunner,ageCat) {
   // Assumes default order of run-time position is preset on runner list (position-desc)
   try {
+    await waitForResultsReady(thisPage);  // filter options useless without the data
     await filterPositions(thisPage,ageCat);
     let runners = await getRunnerNames(thisPage);
     console.log('Number of '+ageCat+' runners found: '+runners.length);
