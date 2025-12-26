@@ -159,14 +159,12 @@ exports.getUrl = async (req,res) => {
 </tbody>
 */
 async function getRunnerRows(thisPage) {
-  // await thisPage.waitForTimeout(200); // wait a moment to sort/filter rows
   const resultsTABLE = 'tr.Results-table-row';
   await thisPage.waitForSelector(resultsTABLE);
   return await thisPage.$$(resultsTABLE);
 }
 
 async function getRunnerNames(thisPage) {
-  await thisPage.waitForTimeout(2000); // wait a moment to sort/filter rows
   const resultsTABLE = 'tr.Results-table-row';
   const nameField='data-name';
   await thisPage.waitForSelector(resultsTABLE);
@@ -186,6 +184,12 @@ function getMatchName(names, name) {
   return position === -1 ? null : position+1;
 }
 
+async function waitForResultsReady() {
+  await thisPage.waitForFunction(() =>
+    document.querySelector('.Results-table')
+  );
+}
+  
 // async function sortPositions > preview
 /*
   <select name="sort" class="js-ResultsSelect">
@@ -201,6 +205,7 @@ async function sortPositions(
   thisPage,
   order = 'position-desc')    // as is the default option on opening the page
 {    // same dataset that may be quickly re-ordered if Age-Grade sort prior to getting other positions
+  await waitForResultsReady();  // sort options useless without the data
   await thisPage.evaluate((order) => {
     const sortField = 'sort';
     const sortSelector = `select[name="${sortField}"]`;
@@ -276,6 +281,7 @@ async function filterPositions(
   thisPage,
   category = '')  // default removes filter
 {
+  await waitForResultsReady();  // filter options useless without the data
   await thisPage.evaluate((category) => {    // Enter category and trigger search
     // WARNING: thisPage.waitForSelector('input[name="search"]') fails because display: none
     // ... div.selectize-input.items.not-full.has-options
