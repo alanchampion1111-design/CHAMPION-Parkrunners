@@ -275,7 +275,7 @@ async function filterPositions(
   await thisPage.type(classINPUT,category);      //  2. Type valid Age-Category (or Male/Female Gender)
   await thisPage.keyboard.press('Enter');        //  3. Press Enter to select matching pull-down...
   let expectedValue = catClass+': '+category;    //    ...potentially likewise with gender: Male/Female
-  const selectedClassITEM = '.selectize-input.item';   
+  const selectedClassITEM = '.selectize-input .item';   
   let selectedValue = await thisPage.$eval(      //  4. Final selection found in the item that follows...            
     selectedClassITEM, elem => elem.value);      //     ...as likewise directed into searchINPUT (but hidden!)
   expect(selectedValue).toBe(expectedValue);     //  5. Verify entry matches a pull-down opton, or throw error!
@@ -296,7 +296,7 @@ async function unfilterCategory(thisPage) {
   // This only resets the filter search, without impacting the sort order
   const classREMOVE = '.selectize-input .remove'; 
   await thisPage.click(classREMOVE);    // assume a single filter category
-  const selectedClassITEM = '.selectize-input.item';  
+  const selectedClassITEM = '.selectize-input .item';  
   await expect(thisPage.$eval(
     selectedClassITEM, elem => elem.value)).toBe('');
   // WARNING: Consider continue (as above) only after number of rows differ
