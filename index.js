@@ -122,7 +122,7 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
       console.log('Loading page with URL,',thisUrl);
       await thisPage.goto(thisUrl,{waitUntil: 'domcontentloaded'});
       var content = await thisPage.content();    // always ensure page is fully loaded
-      var data = await thisPage.evaluate(() => window.const data = await thisPage.evaluate(() => window.parkrunResultsData););
+      var data = await thisPage.evaluate(() => window.parkrunResultsData);
       return pageOnly ? thisPage : content;  // if content, then we are done, otherwise more to do!
     }
   } catch (err) {
