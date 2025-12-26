@@ -104,26 +104,26 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
   // console.log('Reconnecting to browser WS Endpoint:',thisBrowserWSEp,'with same page ID,',thisPageId);
   try {
     if (!thisBrowserWSEp) {
-      console.error('ERROR: Persistent browser not found:',thisBrowserWSEp,'with timeout', browserTimeout);
-      throw new Error('Persistent browser not found');
+      console.error('ERROR: Persistent browser NOT found:',thisBrowserWSEp);
+      throw new Error('Persistent browser NOT found!');
     } else {
-      console.log('Persistent browser not found,',browserTimeout);
-      var thisBrowser = await puppeteer    // actually reconnect
-        .connect({ browserWSEndpoint: thisBrowserWSEp });
+      console.log('Persistent browser found,',thisBrowserWSEp,'with ongoing timeout:',browserTimeout);
+      var thisBrowser = await puppeteer
+        .connect({browserWSEndpoint: thisBrowserWSEp});     // actually reconnects 
       var thisPage = (await thisBrowser.pages())
         .find(page => page.target()._targetId === thisPageId);
       if (thisPage) {
         await thisPage.setDefaultTimeout(pageSECS);
       } else {
-        console.error('ERROR: Persistent page not found:',thisPageId,'with timeout', pageSECS);
-        throw new Error('Persistent page not found');
+        console.error('ERROR: Persistent page NOT found:',thisPageId,'with refreshed timeout', pageSECS);
+        throw new Error('Persistent page NOT found!');
       }
       console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
       console.log('Loading page with URL,',thisUrl);
       await thisPage.goto(thisUrl,{waitUntil: 'domcontentloaded'});
       var content = await thisPage.content();    // always ensure page is fully loaded
-      var data = await thisPage.evaluate(() => window.parkrunResultsData);
-      return pageOnly ? thisPage : content;  // if content, then we are done, otherwise more to do!
+      var data = await thisPage.evaluate(() => window.parkrunResultsData);    // although may not be fully formaatted
+      return pageOnly ? thisPage : content;      // if content, then we are done, otherwise more to do!
     }
   } catch (err) {
     console.error('ERROR: Failed to retrieve page:',err);
@@ -234,86 +234,73 @@ async function sortAgeGrade(thisPage,matchRunner,ageGrade) {
 
 // async function filterPositions > preview
 /*
-  <div class="Results-filters js-ResultsFilters">
-    <div class="Results-filters-input">
-      <input type="text" name="search" class="js-ResultsSearch selectized"
-        placeholder="Start typing to search" tabindex="-1" value="" style="display: none;">
-      <div class="selectize-control js-ResultsSearch multi plugin-remove_button">
-        <div class="selectize-input items not-full has-options">
-          <input type="text" autocomplete="off" tabindex="" 
-            placeholder="Start typing to search" style="width: 153px; opacity: 1; position: relative; left: 0px;">
-        </div>
-        <div class="selectize-dropdown multi js-ResultsSearch plugin-remove_button" style="display: none; width: 395px; top: 50px; left: 0px; visibility: visible;">
-          <div class="selectize-dropdown-content">
-            :
-            // sample subset category for Gender, Age Group, & Achievement
-            <div class="option" data-selectable="" data-value="gender: Male">
-              <span class="value">Male</span>
-              <span class="type type--gender">Gender</span>
-            </div>
-            <div class="option" data-selectable="" data-value="gender: Female">
-              <span class="value">Female</span>
-              <span class="type type--gender">Gender</span>
-            </div>
-            <div class="option" data-selectable="" data-value="agegroup: JM10">
-              <span class="value">JM10</span>
-              <span class="type type--agegroup">Age Group</span>
-            </div>
-            :
-            // samples after typing VM, which automatically gets highlighted
-            <div class="option" data-selectable="" data-value="agegroup: VM35-39">
-              <span class="value"><span class="highlight">VM</span>35-39</span>
-              <span class="type type--agegroup">Age Group</span>
-            </div>
-            <div class="option" data-selectable="" data-value="agegroup: VM40-44">
-              <span class="value"><span class="highlight">VM</span>40-44</span>
-              <span class="type type--agegroup">Age Group</span>
-            </div>
-            :
-          </div>
-        </div>
-      </div>
+  <input type="text" name="search" class="js-ResultsSearch selectized"
+    placeholder="Start typing to search" tabindex="-1" value="" style="display: none;">
+  <div class="selectize-control js-ResultsSearch multi plugin-remove_button">
+    <div class="selectize-input items not-full has-options">
+      <input type="text" autocomplete="off" tabindex="" 
+        placeholder="Start typing to search" style="width: 153px; opacity: 1; position: relative; left: 0px;">
     </div>
-  </div>
+        :
+        // sample subset category for Gender, Age Group, & Achievement
+        <div class="option" data-selectable="" data-value="gender: Male">
+          <span class="value">Male</span>
+          <span class="type type--gender">Gender</span>
+        </div>
+        // samples after typing VM, which automatically gets highlighted
+        <div class="option" data-selectable="" data-value="agegroup: VM35-39">
+          <span class="value"><span class="highlight">VM</span>35-39</span>
+          <span class="type type--agegroup">Age Group</span>
+        </div>
+// AFTER clicking the input box, and entering the age Category, the value is evident in both the visible and the hidden fields
+  <input type="text" name="search" class="js-ResultsSearch selectized"
+    placeholder="Start typing to search" tabindex="-1" value="agegroup: VM55-59" style="display: none;">
+  <div class="selectize-control js-ResultsSearch multi plugin-remove_button">
+    <div class="selectize-input items not-full has-options">
+      <div class="item item--agegroup active" data-value="agegroup: VM55-59">
+        <span class="filter-type ">Age Group: </span><span class="filter-value">VM55-59</span>
+        <a href="javascript:void(0)" class="remove" tabindex="-1" title="Remove">×</a>
 */
 async function filterPositions(
-  thisPage,
-  category = '')  // default removes filter
+  thisPage,category,
+  catClass = 'agegroup')   // alternatively 'gender'
 {
-  await thisPage.evaluate((category) => {    // Enter category and trigger search
-    // WARNING: thisPage.waitForSelector('input[name="search"]') fails because display: none
-    // ... div.selectize-input.items.not-full.has-options
-    const inputSelector = '.selectize-input input';  // abbreviated form
-    let filterSelect = document.querySelector(inputSelector);  // valid inside evaluate
-    if (!filterSelect) throw new Error('The input filter selector, '+inputSelector+' was NOT found!');
-    else console.log('The input filter selector, '+inputSelector+' was found');
-    filterSelect.value = category;
-    filterSelect.dispatchEvent(new Event('input',{bubbles: true}));
-  }, category);
-  await thisPage.waitForFunction((category) => {  //...and wait for a matching pull-down optopn
-    const optionValue = 'agegroup: '+category;    // otherwise gender: when Male/Female
-    const dataField = 'data-value';
-    let filterOption = document.querySelector(
-      `.selectize-dropdown-content .option[${dataField}="${optionValue}"]`
-    );
-    let filterMatch = filterOption && (filterOption.getAttribute(dataField) === optionValue);
-    if (!filterMatch) throw new Error('The filter option for '+category+' did NOT match any pull-down option!');
-    else console.log('The filter option for '+category+' matched a pull-down option');
-  }, category);
+  const searchINPUT = 'input#search';          
+  await thisPage.click(searchINPUT);             //  1. Focus on search input box
+  await thisPage.type(searchINPUT,category);     //  2. Type valid Age-Category or Gender
+  await thisPage.keyboard.press('Enter');        //  3. Press Enter to effect
+  let expectedValue = catClass+': '+category;    // ...otherwise gender: when Male/Female
+  let selectedValue = await thisPage.$eval(      // Instant but possibly after search applied to the the table?
+    searchINPUT, elem => elem.value);
+  expect(selectedValue).toBe(expectedValue);     //  4. Verify matches a pull-down optopn, or throw error!
+  /* else */ console.log('The filter option for '+category+' matched a pull-down option');
+  // Perhaps may also await the table upfdate, but may be handled without re-query on the browser side?
 }
 
-async function filterAgeCategory(thisPage,matchRunner,ageCat) {
+async function unfilterCategory(thisPage) {
+  // This only resets the filter search, without impacting the sort order
+  const searchINPUT = 'input#search'; 
+  await thisPage.click('.selectize-input .remove');    // assume only one filter class
+  await expect(thisPage.$eval(
+    searchINPUT, elem => elem.value)).toBe('');
+}
+
+async function filterCategory(
+  thisPage,matchRunner,
+  category,
+  catClass= 'agegroup')   // alternatively 'gender' 
+{
   // Assumes default order of run-time position is preset on runner list (position-desc)
   try {
     await waitForResultsReady(thisPage);  // filter options useless without the data
-    await filterPositions(thisPage,ageCat);
+    await filterPositions(thisPage,category,catClass);
     let runners = await getRunnerNames(thisPage);
-    console.log('Number of '+ageCat+' runners found: '+runners.length);
-    if (!runners) throw new Error('Failed to filter on Age-Category, '+ageCat);
+    console.log('Number of '+category+' runners found: '+runners.length);
+    if (!runners.length) throw new Error('Failed to filter on '+category+' Category');
     let position = getMatchName(runners,matchRunner);
-    if (position) console.log(ageCat+' position for matching runner, '+matchRunner+' is '+position);
-    else throw new Error('Failed to find matching runner, '+matchRunner+' in filtered '+ageCat+' within results, '+thisPage.url());
-    await filterPositions(thisPage); // Reset filter WHEN a subsequent position required (e.g. Gender position)
+    if (position) console.log(category+' position for matching runner, '+matchRunner+' is '+position);
+    else throw new Error('Failed to find matching runner, '+matchRunner+' in filtered '+category+' within results, '+thisPage.url());
+    await unfilterCategory(thisPage); // Reset filter WHEN a subsequent position is required (e.g. gender position)
     return position;
   } catch (err) {
     console.error(err, 'on', thisPage.url());
@@ -324,14 +311,15 @@ async function filterAgeCategory(thisPage,matchRunner,ageCat) {
 /**
 * Called by GAS UrlFetch function, (via browser function to switch below)
 *   Example https://<GC service>.run.app?url=https://www.parkrun.org.uk/havant/results/638&rn=Dave+BUSH&ac=VM55-59&ag=
-* Returns two positions (in JSON format): Age-Category order and Age-Grade (%age) order
+* Returns two positions (in JSON format): Age-Category order and Age-Grade (%age) order (perhaps Gender later)
 */
 exports.filterUrl = async (req,res) => {
   // Default parameters in case no ? and & parameters passed
   let thisUrl = req.query?.url     || 'https://www.parkrun.org.uk/havant/results/638/';  // Sample parkrun event
   let matchRunner = decodeURIComponent(req.query?.rn || 'Dave BUSH');  // Sample runner at Havant parkrun #638
   let ageCat = req.query?.ac       || 'VM55-59';      // Age-Category filter for matching Dave (expect 2)
-  let ageGrade = req.query?.ag     || 'Age-Grade';    // Age-Grade sort for matching Dave (expect 9)
+  let ageGrade = req.query?.ag     || 'Age-Grade';    // Age-Grade (%age) &sort for matching Dave (expect 8)
+  let genderCat = req.query?.gc    || 'Male';         // Gender category filter for matching Dave (expect 11)
 // begin
   console.log('thisUrl: '+thisUrl);
   console.log('matchRunner: '+matchRunner);
@@ -346,8 +334,11 @@ exports.filterUrl = async (req,res) => {
     // 1. Sort by (descending) Age-Grade, to get ageGrade position of matchRunner
     let agPosition = await sortAgeGrade(thisPage,matchRunner,ageGrade);
     // 2. Filter by Age-Category to get ageCat position of matchRunner
-    let acPosition = await filterAgeCategory(thisPage,matchRunner,ageCat);
-    res.status(200).json({acPosition,agPosition});    // in expected order
+    let acPosition = await filterCategory(thisPage,matchRunner,ageCat);
+    // 3. Filter by Gender if need to get genderCat position of matchRunner
+    // let gcPosition = await filterCategory(thisPage,matchRunner,genderCat,'gender');
+    res.status(200).json({acPosition,agPosition});      // in expected order
+    // res.status(200).json({acPosition,agPosition,gcPosition});    // in expected order
   } catch (err) {
     console.error('ERROR:',err);
     res.status(500).send('ERROR: '+err.message);
