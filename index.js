@@ -17,6 +17,9 @@ puppeteer.use(StealthPlugin());
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
 const url = require('url');
 let thisBrowserWSEp;  // browser persists on server   
+const browserURL = 'https://browser-automation-service-224251628103.europe-west1.run.app';
+const parkrunURL = 'https://www.parkrun.org.uk';
+const parkrunnerURL = parkrunURL+'/parkrunner/';
 
 let thisPageId;       // re-use same page      
 let browserTimeout;   // for browser session
@@ -202,9 +205,10 @@ async function sortPositions(
   order = 'position-desc')    // as is the default option on opening the page
 {    // same dataset that may be quickly re-ordered if Age-Grade sort prior to getting other positions
   await thisPage.evaluate((order) => {
-    const sortSelector = 'select[name="sort"]';
+    const sortField = 'sort';
+    const sortSelector = `select[name="${sortField}"]`;
     let sortSelect = document.querySelector(sortSelector);    // valid inside evaluate
-    console.log('sortSelect:', sortSelect);
+    console.log('sortPositions sortSelect:',sortSelect);
     sortSelect.value = order;
     sortSelect.dispatchEvent(new Event('change',{bubbles: true}));
   }, order);  // ensures order is in scope of the thisPage evaluation
@@ -288,7 +292,9 @@ async function filterPositions(
   await thisPage.waitForFunction((category) => {  //...and wait for a matching pull-down optopn
     const optionValue = 'agegroup: '+category;    // otherwise gender: when Male/Female
     const dataField = 'data-value';
-    let filterOption = document.querySelector('.selectize-dropdown-content .option['+dataField+'="'+optionValue+'"]');
+    let filterOption = document.querySelector(
+      `.selectize-dropdown-content .option[${dataField}="${optionValue}"]`
+    );
     let filterMatch = filterOption && (filterOption.getAttribute(dataField) === optionValue);
     if (!filterMatch) throw new Error('The filter option for '+category+' did NOT match any pull-down option!');
     else console.log('The filter option for '+category+' matched a pull-down option');
@@ -325,6 +331,14 @@ exports.filterUrl = async (req,res) => {
   let ageCat = req.query?.ac       || 'VM55-59';      // Age-Category filter for matching Dave (expect 2)
   let ageGrade = req.query?.ag     || 'Age-Grade';    // Age-Grade sort for matching Dave (expect 9)
 // begin
+  console.log('thisUrl: '+thisUrl);
+  console.log('matchRunner: '+matchRunner);
+  console.log('ageCat: '+ageCat);
+  console.log('ageGrade: '+ageGrade);
+  var testCmd = 'curl -X GET "'+browserURL+'/filterUrl'+'?url='+thisUrl+'&rn='+matchRunner+'&ac='+ageCat+'" \'
+    +'-H "Athorization: bearer $(gcloud auth print-identity-token)" \'
+    +'-H "Content-Type: application/json"';
+  console.log('Test: '+testCmd);
   var thisPage = await loadUrl(thisUrl,true);
   try {  // Get 2 (or more) positions in series
     // 1. Sort by (descending) Age-Grade, to get ageGrade position of matchRunner
