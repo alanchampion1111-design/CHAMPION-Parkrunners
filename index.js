@@ -121,12 +121,8 @@ let loadUrl = async (thisUrl, pageOnly=false) => {
       console.log('Persistent browser timeout,',browserTimeout,'with inter-page access delay,',pageSECS);
       console.log('Loading page with URL,',thisUrl);
       await thisPage.goto(thisUrl,{waitUntil: 'domcontentloaded'});
-      if (pageOnly) return thisPage;
-      else {
-        var content = await thisPage.content();
-        // console.log('Content of page is:\n',content);
-        return content;
-      }
+      var content = await thisPage.content();    // always ensure page is fully loaded
+      return pageOnly ? thisPage : content;  // if content, then we are done, otherwise more to do!
     }
   } catch (err) {
     console.error('ERROR: Failed to retrieve page:',err);
@@ -169,7 +165,7 @@ async function getRunnerRows(thisPage) {
 }
 
 async function getRunnerNames(thisPage) {
-  // await thisPage.waitForTimeout(200); // wait a moment to sort/filter rows
+  await thisPage.waitForTimeout(200); // wait a moment to sort/filter rows
   const resultsTABLE = 'tr.Results-table-row';
   const nameField='data-name';
   await thisPage.waitForSelector(resultsTABLE);
@@ -327,7 +323,7 @@ async function filterAgeCategory(thisPage,matchRunner,ageCat) {
 exports.filterUrl = async (req,res) => {
   // Default parameters in case no ? and & parameters passed
   let thisUrl = req.query?.url     || 'https://www.parkrun.org.uk/havant/results/638/';  // Sample parkrun event
-  let matchRunner = decodeURIComponent(req.query?.rn) || 'Dave BUSH';  // Sample runner at Havant parkrun #638
+  let matchRunner = decodeURIComponent(req.query?.rn || 'Dave BUSH');  // Sample runner at Havant parkrun #638
   let ageCat = req.query?.ac       || 'VM55-59';      // Age-Category filter for matching Dave (expect 2)
   let ageGrade = req.query?.ag     || 'Age-Grade';    // Age-Grade sort for matching Dave (expect 9)
 // begin
