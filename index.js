@@ -275,18 +275,22 @@ async function filterPositions(
   await thisPage.type(classINPUT,category);      //  2. Type valid Age-Category (or Male/Female Gender)
   await thisPage.keyboard.press('Enter');        //  3. Press Enter to select matching pull-down...
   let expectedValue = catClass+': '+category;    //    ...potentially likewise with gender: Male/Female
-  const selectedClassITEM = '.selectize-input .item';   
-  let selectedValue = await thisPage.$eval(      //  4. Verify match to pull-down in the item that follows...            
+  const selectedClassITEM = '.selectize-input .item';
+  await thisPage.waitForSelector(selectedClassITEM,
+    {visible: true,timeout: 5000});              //  4. Wait until the new element exists (& table mods too?)
+  let selectedValue = await thisPage.$eval(      //  5. Verify match to pull-down in the item that follows...            
     selectedClassITEM, elem => elem.value);      //     ...as likewise directed into searchINPUT (but hidden!)
-  if (selectedValue !== expectedValue) throw new Error('Expected '+expectedValue+' category but got '+selectedValue);
-  /* else */ console.log('The filter option for '+category+' matched a pull-down option');
-  // TODO: Perhaps may also await the table upfdate, but may be handled without re-query on the browser side?
+  if (selectedValue !== expectedValue)
+    throw new Error('Expected '+expectedValue+' category but got '+selectedValue);
+  else
+    console.log('The filter option for '+category+' matched a pull-down option');
+  // TODO: Perhaps may also await the table update, but may be handled without re-query on the browser side?
   // Assume table update of row subset is instant? if filter handled locally by scripts
   // WARNING: If this fails because of a backend service, consider continue only after number of rows differ
   // await thisPage.waitForFunction((initialRowCount) => {
   //   var newRowCount = document.querySelectorAll('.table-selector tr').length;
-  //  return newRowCount !== initialRowCount;
-  //  }, initialRowCount);
+  //   return newRowCount !== initialRowCount;
+  // }, initialRowCount);
 }
 
 /**
