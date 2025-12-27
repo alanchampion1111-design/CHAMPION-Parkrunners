@@ -149,7 +149,27 @@ exports.getUrl = async (req,res) => {
   }
 }
 
-// async function getRunnerRows(thisPage) > preview
+/** ______________________________________________________________________________________
+/
+  Functions hirarchy follows for this block used maintain 
+    exports.filterUrl
+      -> loadUrl
+      sortAgeGrade
+        waitForResultsReady
+        sortPositions
+        getRunnerNames
+        getMatchName
+        sortPositions (to unsort)
+      filterCategory
+        waitForResultsReady
+        filterPositions
+        getRunnerNames
+        getMatchName
+        unfilterCategory
+/ ________________________________________________________________________
+*/
+
+// async function getRunnerNames(thisPage) > preview
 /*
 <table class="ResultsTable js-ResultsTable Results-table--compact">
 :
@@ -158,7 +178,7 @@ exports.getUrl = async (req,res) => {
   :
   </tr>
 </tbody>
-*/
+*/  // TODO redunmant
 async function getRunnerRows(thisPage) {
   const resultsTABLE = 'tr.Results-table-row';
   await thisPage.waitForSelector(resultsTABLE);
@@ -203,8 +223,8 @@ async function waitForResultsReady(thisPage) {
 */
 async function sortPositions(
   thisPage,
-  order = 'position-desc')    // as is the default option on opening the page
-{    // same dataset that may be quickly re-ordered if Age-Grade sort prior to getting other positions
+  order = 'position-asc')    // top option is default, overall position from 1..n (lowest time first)
+{    // expect same dataset that may be quickly re-ordered getting Age-Grade positions prior to others
   await thisPage.evaluate((order) => {
     const sortField = 'sort';
     const sortSelector = `select[name="${sortField}"]`;
@@ -269,28 +289,25 @@ async function filterPositions(
 {
   // var initialRowCount = await thisPage.locator('.table-selector tr').count();  // Check WARNING below?
   const searchINPUT = 'input#search';            // Does not find 1st input field since hidden!!
-  const classINPUT = '.selectize-input input';   // Finds 2nd input text field (within the class element)
+  const classELEM = '.selectize';                // Useful for traces
+  const classINPUT = classELEM+' input';         // Finds 2nd input text field (within the class element)
   await thisPage.waitForSelector(classINPUT);
   await thisPage.click(classINPUT);              //  1. Focus may be automatic on typing in 2.
   await thisPage.type(classINPUT,category);      //  2. Type valid Age-Category (or Male/Female Gender)
-        const classELEM = '.selectize-input';
-        var elem = await thisPage.$(classELEM);
-        console.log(await elem.evaluate(elem => elem.outerHTML));
   await thisPage.keyboard.press('Enter');        //  3. Press Enter to select matching pull-down...
-        elem = await thisPage.$(classELEM);
-        console.log(await elem.evaluate(elem => elem.outerHTML));
   let expectedValue = catClass+': '+category;    //    ...potentially likewise with gender: Male/Female
   const selectedClassITEM = '.selectize-input .item';
   await thisPage.waitForSelector(selectedClassITEM,
     {visible: true,timeout: 5000});              //  4. Wait until the new element exists (& table mods too?)
   let selectedValue = await thisPage.$eval(      //  5. Verify match to pull-down in the item that follows...            
-    selectedClassITEM, elem => elem.value);      //     ...as likewise directed into searchINPUT (but hidden!)
-  if (selectedValue !== expectedValue)
-    console.log('Expected '+expectedValue+' category but got '+selectedValue);
-  else
+    selectedClassITEM, elem => elem.dataset.value);  // ...as likewise directed into searchINPUT (but hidden!)
+  if (selectedValue === expectedValue)
     console.log('The filter option for '+category+' matched a pull-down option');
-          elem = await thisPage.$(classELEM);
-          console.log(await elem.evaluate(elem => elem.outerHTML));
+  else {
+    elem = await thisPage.$(classELEM);
+    console.log(await elem.evaluate(elem => elem.outerHTML));
+    throw new Error('Expected '+expectedValue+' category but got '+selectedValue);
+  }
   // TODO: Perhaps may also await the table update, but may be handled without re-query on the browser side?
   // Assume table update of row subset is instant? if filter handled locally by scripts
   // WARNING: If this fails because of a backend service, consider continue only after number of rows differ
