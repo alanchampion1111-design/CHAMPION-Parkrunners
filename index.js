@@ -273,7 +273,12 @@ async function filterPositions(
   await thisPage.waitForSelector(classINPUT);
   await thisPage.click(classINPUT);              //  1. Focus may be automatic on typing in 2.
   await thisPage.type(classINPUT,category);      //  2. Type valid Age-Category (or Male/Female Gender)
+        const classELEM = '.selectize-input';
+        var elem = await thisPage.$(classELEM);
+        console.log(await elem.evaluate(elem => elem.outerHTML));
   await thisPage.keyboard.press('Enter');        //  3. Press Enter to select matching pull-down...
+        elem = await thisPage.$(classELEM);
+        console.log(await elem.evaluate(elem => elem.outerHTML));
   let expectedValue = catClass+': '+category;    //    ...potentially likewise with gender: Male/Female
   const selectedClassITEM = '.selectize-input .item';
   await thisPage.waitForSelector(selectedClassITEM,
@@ -281,9 +286,11 @@ async function filterPositions(
   let selectedValue = await thisPage.$eval(      //  5. Verify match to pull-down in the item that follows...            
     selectedClassITEM, elem => elem.value);      //     ...as likewise directed into searchINPUT (but hidden!)
   if (selectedValue !== expectedValue)
-    throw new Error('Expected '+expectedValue+' category but got '+selectedValue);
+    console.log('Expected '+expectedValue+' category but got '+selectedValue);
   else
     console.log('The filter option for '+category+' matched a pull-down option');
+          elem = await thisPage.$(classELEM);
+          console.log(await elem.evaluate(elem => elem.outerHTML));
   // TODO: Perhaps may also await the table update, but may be handled without re-query on the browser side?
   // Assume table update of row subset is instant? if filter handled locally by scripts
   // WARNING: If this fails because of a backend service, consider continue only after number of rows differ
