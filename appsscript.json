@@ -28,10 +28,6 @@
         "functionName": "GenerateChartsFromGroups"
       },
       {
-        "menuName": "Accept Cookies",
-        "functionName": "AcceptCookies"
-      },
-      {
         "menuName": "Generate Age Group charts",
         "functionName": "GenerateAgeGroupsBlockCharts"
       },
@@ -48,7 +44,7 @@
         "functionName": "GenerateFamiliesBlockCharts"
       },
       {
-        "menuName": "Prepare App",
+        "menuName": "Extract for App",
         "functionName": "PrepareAppSheets"
       },
       {
