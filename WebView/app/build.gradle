@@ -2,6 +2,14 @@ plugins {
     id 'com.android.application'
 }
 
+import java.util.Properties
+
+Properties props = new Properties()
+def propsFile = rootProject.file('keystore.properties')
+if (propsFile.exists()) {
+    props.load(new FileInputStream(propsFile))
+}
+
 android {
     namespace 'com.chart5k.app'
     compileSdk 34
