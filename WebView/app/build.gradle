@@ -14,6 +14,17 @@ android {
         versionName "1.0"
     }
 
+    signingConfigs {
+        release {
+            if (propsFile.exists()) {
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+    
     buildTypes {
         release {
             minifyEnabled false
