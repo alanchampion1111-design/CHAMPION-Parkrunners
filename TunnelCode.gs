@@ -2112,6 +2112,7 @@ function CatchUpAllPositions() {
         if (runnerDoB == unknownDOB) continue;   // pass if DoB unknown
         let runnerNameId = runnerName+'_'+runnerIndex;  // consistently unique for index and status
         Logger.log('Threading batch for a single runner: '+runnerName+' ['+runnerIndex+']');
+        ResetConsecFails(runnerNameId); // Clear Consec fails for  restart
         LockCallerForwardsTo(threadBatchFN,'threaded',runnerNameId);
         break; // batch the first incomplete runner only until done to avoid conflict
       } else if (tc.debug) 
