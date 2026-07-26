@@ -1,20 +1,17 @@
 // This java package is an Android wrapper that enables the CHArT5k (Web App) to be published on Google Play Store.
-// This configuration comes in four parts: (after installation of Node.js, java SDK etc.):
+// This configuration comes in 4 (out of 7) key parts: (after installation of Node.js, java SDK & gradle):
 //      1. C:\CHArT5k-WebView\app\src\main\java\com\chart5k\app\MainActivity.java (i.e this file)
 //      2. C:\CHArT5k-WebView\app\src\main\AndroidManifest.xml
-//      3. C:\CHArT5k-WebView\build.gradle
+//      3. C:\CHArT5k-WebView\app\build.gradle
 //      4. C:\CHArT5k-WebView\settings.gradle
 // After applying any changes, test the APK after signing...
-//      a.  C:\CHArT5k-WebView\gradle-8.5\bin\gradle --stop
-//          C:\CHArT5k-WebView\gradle-8.5\bin\gradle assembleRelease bundleRelease
-//      b.  C:\Android-CLI\build-tools\34.0.0\apksigner.bat sign \
-//              --ks C:\CHArT5k-WebView\android.keystore --ks-key-alias chart5k \
-//              C:\CHArT5k-WebView\app\build\outputs\apk\release\app-release-unsigned.apk
-//      c.  ren C:\CHArT5k-WebView\app\build\outputs\apk\release\app-release-unsigned.apk app-release-signed.apk
-//      d.  jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA256 -keystore C:\CHArT5k-WebView\android.keystore \
-//              C:\CHArT5k-WebView\app\build\outputs\bundle\release\app-release.aab chart5k
-// Upload .apk and .aab file for access from mobile to G Drive:
-//      IT Business / Parkrun / CHArt5k-Webview
+//      a.  cd C:\CHArT5k-WebView
+//      b.  gradle --stop
+//      c.  gradle assembleRelease
+//      d.  gradle bundleRelease
+// Upload both builds to GDrive, IT Business / Parkrun / CHArt5k-Webview
+//      1.  C:\CHArT5k-WebView\app\build\outputs\apk\release\app-release.apk
+//      2   C:\CHArT5k-WebView\app\build\outputs\bundle\release\app-release.aab
 
 package com.chart5k.app;
 
