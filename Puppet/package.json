@@ -5,7 +5,8 @@
   "main": "index-ngrok.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "pm2 start ecosystem.config.js"
+    "start": "npx pm2 start ecosystem.config.js",
+    "logs": "npx pm2 logs chart5k-puppet"
   },
   "keywords": [],
   "author": "",
