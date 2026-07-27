@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: "chart5k-puppet",
-    script: "./index-ngrok.js", // Replace with your actual main entry script if different
+    script: "./index-ngrok.js",
     watch: false,
     autorestart: true,
     max_restarts: 10,
