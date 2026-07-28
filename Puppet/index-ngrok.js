@@ -318,8 +318,8 @@ async function loadUrl(thisUrl,
     }
     await thisPage.setDefaultTimeout(timeMax);      // Ensure active page timeout matches current transaction scope
     await presetDomainCookies(thisPage,thisUrl);    // required on every Page?
-    await new Promise(resolve => setTimeout(resolve, 4000+Math.floor(Math.random()*4000)));   // mimic 4-8 secs human delay
-    await thisPage.goto(thisUrl,{waitUntil: 'domcontentloaded',timeout: 11000});    // alternatively, networkidle0
+    await new Promise(resolve => setTimeout(resolve, 4000+Math.floor(Math.random()*3000)));   // mimic 4-7 secs human delay
+    await thisPage.goto(thisUrl,{waitUntil: 'domcontentloaded',timeout: 15000});    // alternatively, networkidle0
     await thisPage.waitForNavigation
       ({waitUntil: 'networkidle2', timeout: 3000})
       .catch(e => console.log('INFO: Navigation settled or already idle.')
