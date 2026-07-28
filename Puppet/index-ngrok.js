@@ -281,7 +281,7 @@ async function loadUrl(thisUrl,
     var timeMax = timeSecs*1000;
     const selectResultsTABLE = 'table[id*="results"]';  // 3 tables with id="results"
     if (!thisBrowserWSEp && !isLaunching) {  // Auto-heal if endpoint was wiped by a timeout or container spin-up
-      console.warn('WARNING: Persistent browser NOT found. Re-launching internally...');
+      console.warn('WARNING: Persistent browser NOT found. Re-launching...');
       isLaunching = true;
       await chromeBrowser();
       isLaunching = false;
