@@ -47,9 +47,6 @@ const cookieJAR = [
 
 let prevPage;         // retain thisPage on weekly import (minimal cache => single page)
 let prevFilterUrl;    // recall previous event URL determines re-use of retained prevPage
-let browserTimeout;   // for browser session
-let browserTimer;
-const sessionMINS = 60;  // browser session timeout about one hour
 const launchSECS = 50;  // initial first page load timeout
 const pageSECS = 3;     // Assume 10 seconds BETWEEN page accesses on parkrun site relies on stealth mode?
 const minRunnerTableCOUNT = 3;  // 3 for a 5k runner
@@ -59,15 +56,12 @@ const loadDetailSECS = 20;      // max time to load any event results page or gl
 let isLaunching = false; // PREVENT concurrent re-launch spikes inside loadUrl
 
 /**
- *  Launches a headless Chrome browser with specified session limit.
- *    @param {number} [sessionLimit default 5] - Session limit in minutes
+ *  Launches a Chrome browser (which may be headless) without execution limits.
  *  @returns {Promise<void>}
- *  @sideeffect leaves the browser connected and returns a presistent WS endpoint for re-use
+ *  @sideeffect leaves the browser connected and returns a persistent WS endpoint for re-use
  */
-let cloudBrowser = async (
-  sessionMins = sessionMINS) =>
+let chromeBrowser = async () =>
 {
-  browserTimeout = sessionMins*60*1000;
   var thisBrowser = await puppeteer.launch({  // variable delay if image not cached?
     headless: false,
     executablePath: chromePATH,
@@ -77,44 +71,33 @@ let cloudBrowser = async (
       '--disable-dev-shm-usage',
       '--cert='+allParkrunCERTS,
       '--verbose',
-      '--lang=en-GB'    //  ensures the date formats appear as dd/mm/yyyy
+      '--lang=en-GB'    // ensures the date formats appear as dd/mm/yyyy
     ],
-    timeout: launchSECS*1000,       // max launch time
-    // detached: true,         // ensure session with puppeteer persists after initial launch
+    timeout: launchSECS*1000,        // max launch time
+    // detached: true,          // ensure session with puppeteer persists after initial launch
     // ignoreHTTPSErrors: true
   });
-  // Set a timer to close the browser by default after the timeout
-  browserTimer = setTimeout(async () => {
-    try {
-      console.warn('WARNING: Terminating browser due to timeout:',browserTimeout);
-      await thisBrowser.close();
-    } catch (err) {
-      console.error('ERROR: Terminating browser on timeout:',err);
-    } finally {
-      thisBrowserWSEp = null;
-      thisPageId = null;
-      prevPage = undefined;
-      prevFilterUrl = undefined;
-      clearTimeout(browserTimer);
-    }
-  }, browserTimeout);
+
   thisBrowserWSEp = thisBrowser
     ? thisBrowser.wsEndpoint()
     : null;  // return to client (although also global)
+
   if (thisBrowserWSEp)
-    console.log('INFO: Retained browser endpoint: ',thisBrowserWSEp);
+    console.log('INFO: Retained browser endpoint: ', thisBrowserWSEp);
+
   try {
     var pages = await thisBrowser.pages();
     var thisPage = pages[0]; // blank page by default
     thisPage.setDefaultTimeout(loadSECS*1000);  // Set the timeout for loading content
     let targetPage = await thisPage.target();
     thisPageId = targetPage._targetId;
+
     if (thisBrowser.process() != null)
       console.log('INFO: Blank page (ID: '+thisPageId+') fully ready on browser (EP: '+thisBrowserWSEp+')');
     else
       console.warn('WARNING: Unable to retain page (ID: '+thisPageId+') on browser (EP: '+thisBrowserWSEp+')');
   } catch (err) {
-    console.error('ERROR: Failed to ready the browser (EP: '+thisBrowserWSEp+'): ', err);
+    console.error('ERROR: Failed to ready the browser (EP: '+thisBrowserWSEp+'): ', err);
   }
 }
 
@@ -157,7 +140,6 @@ let killBrowser = async () => {
     thisPageId = null;
     prevPage = undefined;
     prevFilterUrl = undefined;
-    clearTimeout(browserTimer);
   }
 }
 
@@ -175,7 +157,7 @@ exports.initBrowser = async (_,res) => {
     return; 
   }
   try {
-    await cloudBrowser(60);  // Launched ok, with browser active in background
+    await chromeBrowser();  // Launched ok, with browser active in background
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end(thisBrowserWSEp);
   } catch (err) {
@@ -301,12 +283,12 @@ async function loadUrl(thisUrl,
     if (!thisBrowserWSEp && !isLaunching) {  // Auto-heal if endpoint was wiped by a timeout or container spin-up
       console.warn('WARNING: Persistent browser NOT found. Re-launching internally...');
       isLaunching = true;
-      await cloudBrowser(60);
+      await chromeBrowser();
       isLaunching = false;
     } else if (!thisBrowserWSEp) {
       throw new Error('Persistent browser is currently launching elsewhere!');
     }
-    console.log('Persistent browser found,',thisBrowserWSEp,'with ongoing timeout:',browserTimeout);
+    console.log('Persistent browser found,',thisBrowserWSEp);
     var thisBrowser;
     try {
       thisBrowser = await puppeteer
@@ -314,9 +296,8 @@ async function loadUrl(thisUrl,
     } catch (connectErr) {
       // Catch hidden socket timeouts or closed browser instances cleanly
       console.error('ERROR: Connection to WS Endpoint failed. Re-building browser session:', connectErr);
-      clearTimeout(browserTimer);
       isLaunching = true;
-      await cloudBrowser(60);
+      await chromeBrowser();
       isLaunching = false;
       thisBrowser = await puppeteer
         .connect({browserWSEndpoint: thisBrowserWSEp, timeout: timeMax});
