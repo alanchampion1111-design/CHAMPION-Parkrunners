@@ -2067,11 +2067,14 @@ function BatchPositionsForRunner() {
       if (AllPositionsDone(runnersStatus)) {
         CleanupImportBatch(threadBatchFN,anotherCatchupFN);
         return;
-      } else  // loop back for next "unfinished" runner
+      } else { // loop back for next "unfinished" runner
+        CleanupImportBatch(anotherCatchupFN);
+        Logger.log('More catch-up needed for subsequent runner after: '+runnerName+'\t['+runnerIndex+']');
         ScriptApp.newTrigger(anotherCatchupFN)
           .timeBased()
           .after(1500)
           .create();
+      }
     }
   })
   .catch(err => {
