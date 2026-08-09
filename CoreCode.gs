@@ -1765,7 +1765,9 @@ async function EstimateDoBs() {
   }
 }
 
-function CloneTrendsChart(runnerResultsSheet,trendCharts,sinceYear) {
+function CloneTrendsChart(runnerNameId,numRuns,runnerResultsSheet,
+  trendCharts,sinceYear)
+{
   const yearYY = String(sinceYear).slice(-2);   // dates held as strings
   let resultsDates = runnerResultsSheet
     .getRange(cc.resultsDateCOLUMN+cc.resultsStartROW+":"+
@@ -1838,7 +1840,8 @@ function MeritDetailedTrendsChart() {
         " ("+numRuns+")");
       continue; 
     }
-    CloneTrendsChart(runnerResultsSheet,trendCharts,sinceYEAR);
+    CloneTrendsChart(runnerNameId,numRuns,runnerResultsSheet,
+      trendCharts,sinceYEAR);
   }
 }
 
