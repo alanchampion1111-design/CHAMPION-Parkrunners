@@ -1765,7 +1765,8 @@ async function EstimateDoBs() {
   }
 }
 
-function CloneTrendsChart(runnerResultsSheet,trendCharts) {
+function CloneTrendsChart(runnerResultsSheet,trendCharts,sinceYear) {
+  const yearYY = String(sinceYear).slice(-2);   // dates held as strings
   let resultsDates = runnerResultsSheet
     .getRange(cc.resultsDateCOLUMN+cc.resultsStartROW+":"+
       cc.resultsDateCOLUMN+runnerResultsSheet.getLastRow())
@@ -1779,11 +1780,11 @@ function CloneTrendsChart(runnerResultsSheet,trendCharts) {
     }
   }
   if (pivotRow === 0) {
-    Logger.log("WARNING: No "+sinceYEAR+" results rows found on runner's results sheet, "+runnerNameId+
+    Logger.log("WARNING: No "+sinceYear+" results rows found on runner's results sheet, "+runnerNameId+
       " ("+numRuns+")");
     return;
   }
-  let existingChart = trendCharts[0];  // new chart is a clone of existing trend chart
+  let existingChart = trendCharts[0];  // clone existing trend chart
   let oldRanges = existingChart.getRanges();
   let newChartBuilder = existingChart.modify();
   newChartBuilder.clearRanges();
@@ -1798,12 +1799,12 @@ function CloneTrendsChart(runnerResultsSheet,trendCharts) {
     newChartBuilder.addRange(runnerResultsSheet.getRange(targetA1));
   });
   let finalChart = newChartBuilder  // render new detailed trend chart
-    .setOption('title', 'Run times and age-grades (since '+sinceYEAR+')')
+    .setOption('title', 'Run times and age-grades (since '+sinceYear+')')
     .setPosition(22, 14, 0, 0) // Row 22, Col N (14)
     .build();
   runnerResultsSheet.insertChart(finalChart);
   Logger.log("INFO: Successfully merited trends chart on runner's results sheet, "+runnerNameId+
-    " ("+numRuns+") for detail since "+sinceYEAR);
+    " ("+numRuns+") for detail since "+sinceYear);
 }
 
 function MeritDetailedTrendsChart() {
@@ -1821,7 +1822,6 @@ function MeritDetailedTrendsChart() {
   const sinceYEAR = cv.allRunnersSheet
     .getRange(cc.sinceYearCELL)
     .getValue();
-  const yearYY = String(sinceYEAR).slice(-2);   // dates held as strings
   for (var [runnerIndex,runnerName] of runnersNames.entries()) {
     let numRuns = runnersNumRuns[runnerIndex];
     if ( numRuns < meritNumRUNS) continue;   // not reached threshhold (150)
@@ -1838,7 +1838,7 @@ function MeritDetailedTrendsChart() {
         " ("+numRuns+")");
       continue; 
     }
-    CloneTrendsChart(runnerResultsSheet,trendCharts);
+    CloneTrendsChart(runnerResultsSheet,trendCharts,sinceYEAR);
   }
 }
 
