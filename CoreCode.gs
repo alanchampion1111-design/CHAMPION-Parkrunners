@@ -81,7 +81,8 @@ const cc = {
   chartTimeSECS: 90,      // time needed to generate a chart (<10 runners?)
   maxTimeSECS: 6*60,      // limit off 6 minutes per GAS script (governs need to batch)
   chartColOFFSET: -2,     // column B from D on any performances chart sheet (e.g. for Leagues)
-  trendColOFFSET: 12      // column N from B on runner's own trend chart sheet
+  trendColOFFSET: 12,      // column N from B on runner's own trend chart sheet
+  continueINDEX: 'chartIndex' // properties for continuing chart generation
 };
 var cv = {
   activeSpreadsheet: SpreadsheetApp
@@ -1109,8 +1110,6 @@ function CleanupCoreBatch(
   }
 }
 
-const continueINDEX = 'chartIndex';
-
 /**
  * Generates charts in performance sheets based on config in the Groups sheet.
  * Groups are organised into blocks, each with a different target sheet - e.g Leagues
@@ -1139,7 +1138,7 @@ function GenerateChartsFromGroups(
       continue;
     var index = parseInt(PropertiesService
       .getScriptProperties()
-      .getProperty(continueINDEX+'_'+cv.activeSpreadsheetId+'_'+perfSheetName))
+      .getProperty(cc.continueINDEX+'_'+cv.activeSpreadsheetId+'_'+perfSheetName))
         || 0;   // continue from index
     // ONLY clear/clean a perf chart sheet if one or more charts NOT disabled
     var perfSheet = ClearGroupChartsOnSheet(perfSheetName,index);
@@ -1187,7 +1186,7 @@ function GenerateChartsFromGroups(
             ' by re-triggering '+continueGenerate);
           PropertiesService
             .getScriptProperties()
-            .setProperty(continueINDEX+'_'+cv.activeSpreadsheetId+'_'+perfSheetName,index+1);
+            .setProperty(cc.continueINDEX+'_'+cv.activeSpreadsheetId+'_'+perfSheetName,index+1);
           ScriptApp.newTrigger(continueGenerate)
             .timeBased()
             .after(10*1000) // resume in 10 seconds
@@ -1199,7 +1198,7 @@ function GenerateChartsFromGroups(
       }
     }   // Generated all charts for this perfSheetName 
     PropertiesService.getScriptProperties()
-      .deleteProperty(continueINDEX+'_'+cv.activeSpreadsheetId+'_'+perfSheetName);
+      .deleteProperty(cc.continueINDEX+'_'+cv.activeSpreadsheetId+'_'+perfSheetName);
   }
 }
                
@@ -1237,11 +1236,25 @@ function ColourLegendsInGroups(
   }
 }
 
+function ClearProperties(index = cc.continueINDEX) {
+  const propertiesStore = PropertiesService.getScriptProperties(); 
+  const targetPrefix = index + '_' + cv.activeSpreadsheetId + '_';
+  const allProps = propertiesStore.getKeys();
+  allProps.forEach(key => {
+    if (key.startsWith(targetPrefix)) {
+      propertiesStore.deleteProperty(key);
+    }
+  });
+  if (cc.debug)
+    console.log('INFO: Deleted all properties of type,',index);
+}
+
 function GenBatchChartsFromGroups() {
   const batchGapMINS = 20;
   const parallelGapMINS = 9;
   ColourLegendsInGroups();  // in case user has never done so nor rerun explicitly
   CleanupCoreBatch("Generate"); // clear to go; avoid max triggers (leave GenBatch... in tact)
+  ClearProperties();  // ensure all charts start from the 1st chart
   ScriptApp.newTrigger('GenerateAgeGroupsBlockCharts')
     .timeBased()
     .after(5000)
